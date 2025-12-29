@@ -13,7 +13,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 100vh;
+        min-height: 100vh;
         color: #ffffff;
     }
 
@@ -23,6 +23,7 @@
         border-radius: 14px;
         padding: 28px;
         box-shadow: 0 20px 50px rgba(0,0,0,.45);
+        margin: 20px 0;
     }
 
     h2 {
@@ -39,7 +40,7 @@
         margin-bottom: 20px;
     }
 
-    input[type="file"] {
+    input[type="file"], input[type="password"] {
         width: 100%;
         padding: 12px;
         border-radius: 8px;
@@ -47,10 +48,17 @@
         background: #06141c;
         color: #fff;
         cursor: pointer;
+        box-sizing: border-box;
+        margin-bottom: 10px;
+    }
+    
+    input[type="password"] {
+        cursor: text;
+        border: 1px solid #333;
     }
 
     button {
-        margin-top: 18px;
+        margin-top: 10px;
         width: 100%;
         padding: 12px;
         background: #4fa3ff;
@@ -60,11 +68,26 @@
         font-weight: bold;
         font-size: 15px;
         cursor: pointer;
+        transition: background 0.3s;
+    }
+
+    button:hover {
+        background: #7abaff;
     }
 
     button:disabled {
         background: #6b6b6b;
         cursor: not-allowed;
+    }
+
+    /* Green Save Button style */
+    .save-btn {
+        background: #4cff9f;
+        color: #000;
+        margin-top: 10px;
+    }
+    .save-btn:hover {
+        background: #7dfcbd;
     }
 
     .status {
@@ -81,6 +104,35 @@
     .error {
         color: #ff7a7a;
     }
+
+    /* JSON Preview Area Styles */
+    #resultArea {
+        display: none;
+        margin-top: 20px;
+        border-top: 1px solid #1f3a4d;
+        padding-top: 15px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 250px;
+        background: #050e13;
+        color: #a6e22e;
+        border: 1px solid #1f3a4d;
+        border-radius: 6px;
+        padding: 10px;
+        font-family: "Consolas", "Courier New", monospace;
+        font-size: 12px;
+        resize: vertical;
+        box-sizing: border-box;
+    }
+
+    label {
+        font-size: 12px;
+        color: #aaa;
+        display: block;
+        margin-bottom: 5px;
+    }
 </style>
 </head>
 
@@ -88,28 +140,38 @@
 
 <div class="card">
     <h2>AI OASIS Analyzer</h2>
-    <p>Upload OASIS document to extract and save data</p>
+    <p>Upload OASIS document to extract data</p>
 
+    <label>Gemini API Key (Paste here for testing):</label>
+    <input type="password" id="apiKeyInput" placeholder="Paste AIza... key here" />
+
+    <label style="margin-top:10px;">Select Document:</label>
     <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
 
     <button id="analyzeBtn" onclick="startAnalysis()">
-        Analyze & Save
+        Analyze Document
     </button>
 
     <div id="status" class="status"></div>
+
+    <div id="resultArea">
+        <label>Review AI Extraction Result:</label>
+        <textarea id="jsonOutput"></textarea>
+        
+        <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
+            Save to Salesforce
+        </button>
+    </div>
 </div>
 
 <script>
 /* =========================================================
-   CONFIGURATION (POC ONLY)
+   CONFIGURATION
    ========================================================= */
 
-// 🔴 Replace with your Gemini API Key (POC only)
-const GEMINI_API_KEY = "AIzaSyBdPQnjt8X8c1EPcU50Y6U1oJ_eyyL4yG4";
-
-// Gemini endpoint
+// Updated to stable model to avoid 404 errors
 const GEMINI_ENDPOINT =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
 // 🔴 Replace with your Salesforce domain
 const SALESFORCE_ENDPOINT =
@@ -125,6 +187,7 @@ const SALESFORCE_AUTH =
    ========================================================= */
 
 let CHART_ID = null;
+let CACHED_AI_TIME = 0;
 
 // Receive recordId securely from Salesforce LWC
 const ALLOWED_ORIGINS = [
@@ -133,13 +196,9 @@ const ALLOWED_ORIGINS = [
 ];
 
 window.addEventListener("message", (event) => {
-
-    if (!ALLOWED_ORIGINS.some(origin =>
-        event.origin.startsWith(origin)
-    )) {
+    if (!ALLOWED_ORIGINS.some(origin => event.origin.startsWith(origin))) {
         return;
     }
-
     if (event.data && event.data.type === "SF_CONTEXT") {
         CHART_ID = event.data.recordId;
         console.log("✅ Chart Id received:", CHART_ID);
@@ -152,13 +211,26 @@ window.addEventListener("message", (event) => {
    ========================================================= */
 
 async function startAnalysis() {
-
     const status = document.getElementById("status");
-    const button = document.getElementById("analyzeBtn");
+    const analyzeBtn = document.getElementById("analyzeBtn");
+    const resultArea = document.getElementById("resultArea");
+    const jsonOutput = document.getElementById("jsonOutput");
     const file = document.getElementById("fileInput").files[0];
+    
+    // NEW: Get API Key from Input
+    const apiKey = document.getElementById("apiKeyInput").value.trim();
 
+    // Reset UI
+    resultArea.style.display = "none";
+    jsonOutput.value = "";
+    
     if (!CHART_ID) {
         showStatus("❌ Salesforce record context not loaded", true);
+        return;
+    }
+
+    if (!apiKey) {
+        showStatus("❌ Please enter a Gemini API Key", true);
         return;
     }
 
@@ -168,25 +240,75 @@ async function startAnalysis() {
     }
 
     try {
-        button.disabled = true;
-
+        analyzeBtn.disabled = true;
         showStatus("Reading file...");
+        
         const base64Data = await readFileAsBase64(file);
 
         showStatus("Running AI analysis...");
         const startTime = Date.now();
-        const aiResultJson = await callGemini(file.type, base64Data);
-        const aiTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+        
+        // Pass apiKey to the function
+        const rawResult = await callGemini(apiKey, file.type, base64Data);
+        
+        // Calculate and cache time
+        CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        showStatus("Saving results to Salesforce...");
-        await sendToSalesforce(aiResultJson, aiTimeSeconds);
+        // Try to pretty print the JSON
+        let prettyJson = rawResult;
+        try {
+            // Clean markdown block if present ```json ... ```
+            const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
+            const parsed = JSON.parse(cleanJson);
+            prettyJson = JSON.stringify(parsed, null, 4);
+        } catch (e) {
+            console.warn("Could not pretty print JSON, showing raw text.");
+        }
 
-        showStatus("✅ Analysis completed and saved successfully", false);
+        // Display results
+        jsonOutput.value = prettyJson;
+        resultArea.style.display = "block";
+        analyzeBtn.disabled = false;
+        
+        showStatus("✅ Analysis complete. Please review data below.", false);
 
     } catch (error) {
         console.error(error);
         showStatus("❌ " + error.message, true);
-        button.disabled = false;
+        analyzeBtn.disabled = false;
+    }
+}
+
+async function finalizeSave() {
+    const saveBtn = document.getElementById("saveBtn");
+    const jsonOutput = document.getElementById("jsonOutput");
+    const finalJson = jsonOutput.value; // Get (possibly edited) value
+
+    if (!finalJson) {
+        showStatus("❌ No data to save", true);
+        return;
+    }
+
+    try {
+        saveBtn.disabled = true;
+        saveBtn.innerText = "Saving...";
+        showStatus("Saving results to Salesforce...");
+
+        await sendToSalesforce(finalJson, CACHED_AI_TIME);
+
+        showStatus("✅ Saved successfully to Salesforce!", false);
+        saveBtn.innerText = "Saved";
+        
+        setTimeout(() => {
+             saveBtn.disabled = false;
+             saveBtn.innerText = "Save to Salesforce";
+        }, 3000);
+
+    } catch (error) {
+        console.error(error);
+        showStatus("❌ Save failed: " + error.message, true);
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Save to Salesforce";
     }
 }
 
@@ -208,7 +330,8 @@ function readFileAsBase64(file) {
     });
 }
 
-async function callGemini(mimeType, base64Data) {
+// Updated function signature to accept apiKey
+async function callGemini(apiKey, mimeType, base64Data) {
 
     const instructions = `
 You are a specialized Clinical Document Extractor.
@@ -464,7 +587,7 @@ If something is missing → "N/A".
 `;
 
     const response = await fetch(
-        `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`,
+        `${GEMINI_ENDPOINT}?key=${apiKey}`, // Uses the key from the input
         {
             method: "POST",
             headers: {
@@ -487,11 +610,11 @@ If something is missing → "N/A".
     );
 
     if (!response.ok) {
-    const errText = await response.text();
-    console.error("Gemini Error:", errText);
-    throw new Error("Gemini API call failed: " + errText);
-}
-
+        // Log detailed error for debugging
+        const errText = await response.text();
+        console.error("Gemini API Error:", errText);
+        throw new Error("Gemini API call failed: " + response.statusText);
+    }
 
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
@@ -521,6 +644,3 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 
 </body>
 </html>
-
-
-
