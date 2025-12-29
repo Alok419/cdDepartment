@@ -487,8 +487,11 @@ If something is missing → "N/A".
     );
 
     if (!response.ok) {
-        throw new Error("Gemini API call failed");
-    }
+    const errText = await response.text();
+    console.error("Gemini Error:", errText);
+    throw new Error("Gemini API call failed: " + errText);
+}
+
 
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
@@ -518,5 +521,6 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 
 </body>
 </html>
+
 
 
