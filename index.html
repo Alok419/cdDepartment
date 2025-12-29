@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AI OASIS Analyzer</title>
+
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #0b1f2a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        color: #ffffff;
+    }
+
+    .card {
+        width: 480px;
+        background: #081821;
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 20px 50px rgba(0,0,0,.45);
+    }
+
+    h2 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    p {
+        font-size: 14px;
+        opacity: 0.85;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+
+    input[type="file"] {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px dashed #4fa3ff;
+        background: #06141c;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    button {
+        margin-top: 18px;
+        width: 100%;
+        padding: 12px;
+        background: #4fa3ff;
+        border: none;
+        border-radius: 8px;
+        color: #000;
+        font-weight: bold;
+        font-size: 15px;
+        cursor: pointer;
+    }
+
+    button:disabled {
+        background: #6b6b6b;
+        cursor: not-allowed;
+    }
+
+    .status {
+        margin-top: 16px;
+        font-size: 14px;
+        min-height: 20px;
+        text-align: center;
+    }
+
+    .success {
+        color: #4cff9f;
+    }
+
+    .error {
+        color: #ff7a7a;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="card">
+    <h2>AI OASIS Analyzer</h2>
+    <p>Upload OASIS document to extract and save data</p>
+
+    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+
+    <button id="analyzeBtn" onclick="startAnalysis()">
+        Analyze & Save
+    </button>
+
+    <div id="status" class="status"></div>
+</div>
+
+<script>
+/* =========================================================
+   CONFIGURATION (POC ONLY)
+   ========================================================= */
+
+// 🔴 Replace with your Gemini API Key (POC only)
+const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY";
+
+// Gemini endpoint
+const GEMINI_ENDPOINT =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+
+// 🔴 Replace with your Salesforce domain
+const SALESFORCE_ENDPOINT =
+    "https://YOUR_DOMAIN.my.salesforce.com/services/apexrest/oasis/ai-result";
+
+// 🔴 POC ONLY — use session id or access token
+const SALESFORCE_AUTH =
+    "Bearer YOUR_SALESFORCE_ACCESS_TOKEN";
+
+/* =========================================================
+   SALESFORCE CONTEXT (AUTOMATIC RECORD ID)
+   ========================================================= */
+
+let CHART_ID = null;
+
+// Receive recordId securely from Salesforce LWC
+window.addEventListener("message", (event) => {
+
+    // 🔐 SECURITY CHECK — very important
+    if (!event.origin.includes("salesforce.com")) return;
+
+    if (event.data && event.data.type === "SF_CONTEXT") {
+        CHART_ID = event.data.recordId;
+        console.log("✅ Chart Id received:", CHART_ID);
+    }
+});
+
+/* =========================================================
+   MAIN FLOW
+   ========================================================= */
+
+async function startAnalysis() {
+
+    const status = document.getElementById("status");
+    const button = document.getElementById("analyzeBtn");
+    const file = document.getElementById("fileInput").files[0];
+
+    if (!CHART_ID) {
+        showStatus("❌ Salesforce record context not loaded", true);
+        return;
+    }
+
+    if (!file) {
+        showStatus("❌ Please select a file", true);
+        return;
+    }
+
+    try {
+        button.disabled = true;
+
+        showStatus("Reading file...");
+        const base64Data = await readFileAsBase64(file);
+
+        showStatus("Running AI analysis...");
+        const startTime = Date.now();
+        const aiResultJson = await callGemini(file.type, base64Data);
+        const aiTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
+
+        showStatus("Saving results to Salesforce...");
+        await sendToSalesforce(aiResultJson, aiTimeSeconds);
+
+        showStatus("✅ Analysis completed and saved successfully", false);
+
+    } catch (error) {
+        console.error(error);
+        showStatus("❌ " + error.message, true);
+        button.disabled = false;
+    }
+}
+
+/* =========================================================
+   HELPER FUNCTIONS
+   ========================================================= */
+
+function showStatus(message, isError = false) {
+    const status = document.getElementById("status");
+    status.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+async function callGemini(mimeType, base64Data) {
+
+    const instructions = `
+You are a specialized Clinical Document Extractor.
+
+Your task is to extract data from an OASIS-E1 Home Health Assessment document (PDF or image).
+This is a VISUAL extraction task. Use layout, checkboxes, symbols, and circled values — not text order.
+
+────────────────────────────────
+VISUAL IDENTIFICATION RULES
+────────────────────────────────
+1. A value is SELECTED only if you see:
+   ☑  [X]  ■  ✔  or a circled number
+2. Ignore unchecked boxes: ☐  [ ]
+3. If multiple boxes are selected, extract ALL selected values.
+
+────────────────────────────────
+CRITICAL FORMATTING RULES
+────────────────────────────────
+1. RETURN ONLY VALID JSON
+2. Return ONE flat JSON object
+3. ALL values must be STRINGS
+4. NO markdown, NO explanations, NO backticks
+5. If a value is not found or not selected → return "N/A"
+
+────────────────────────────────
+NUMERIC NORMALIZATION
+────────────────────────────────
+• Remove leading zeros:
+  "01" → "1", "02" → "2"
+• EXCEPTION: GG items MUST KEEP leading zeros
+  Example: "06", "05", "01"
+
+────────────────────────────────
+DATE RULES
+────────────────────────────────
+• Format all dates as: YYYY-MM-DD
+• If date is missing → "N/A"
+
+────────────────────────────────
+MULTI-SELECT RULES
+────────────────────────────────
+• If multiple items are selected → return comma-separated values
+  Example: "1,2,4"
+
+────────────────────────────────
+OASIS ITEMS TO EXTRACT
+────────────────────────────────
+
+--- CHART DATA ---
+M0030  Start of Care Date → YYYY-MM-DD
+M0032  Resumption of Care Date → YYYY-MM-DD
+M0060  ZIP Code → FIRST 5 DIGITS ONLY
+M0110  Episode Timing → "1" (Early) or "2" (Later)
+M0069  Gender → "1" Male, "2" Female
+M0080  Discipline → 
+        "1" RN
+        "2" PT
+        "3" SLP/ST
+        "4" OT
+M1005  Inpatient Discharge Date → YYYY-MM-DD
+
+--- OASIS CORE ITEMS ---
+M0090  Date Assessment Completed
+M1000  Inpatient Discharge History (1–7, multi-select)
+M1033  Risk for Hospitalization (multi-select)
+B1000  Vision
+M1400  Dyspnea
+M1700  Cognitive Functioning
+M1710  When Confused
+M1720  When Anxious
+M1740  Cognitive/Behavioral Symptoms (multi-select)
+M1745  Disruptive Behavior
+M1800  Grooming
+M1810  Upper Body Dressing
+M1820  Lower Body Dressing
+M1830  Bathing
+M1840  Toilet Transfer
+M1845  Toileting Hygiene
+M1850  Transferring
+M1860  Ambulation
+M1870  Feeding
+M2020  Oral Medications
+J0530  Pain Interference
+
+────────────────────────────────
+GG ITEMS (KEEP LEADING ZEROS)
+────────────────────────────────
+Extract SOC/ROC PERFORMANCE codes ONLY:
+
+GG0130 B  Oral Hygiene
+GG0130 C  Toileting Hygiene
+GG0130 E  Shower/Bathe Self
+GG0130 F  Upper Body Dressing
+GG0130 G  Lower Body Dressing
+GG0130 H  Footwear
+
+GG0170 A  Roll Left/Right
+GG0170 B  Sit to Lying
+GG0170 C  Lying to Sitting
+GG0170 D  Sit to Stand
+GG0170 E  Chair/Bed Transfer
+GG0170 F  Toilet Transfer
+GG0170 I  Walk 10 Feet
+GG0170 J  Walk 50 Feet w/ Turns
+GG0170 K  Walk 150 Feet
+GG0170 L  Walk 10 Feet Uneven
+GG0170 M  1 Step / Curb
+GG0170 N  4 Steps
+GG0170 O  12 Steps
+GG0170 R  Wheel 50 Feet
+GG0170 S  Wheel 150 Feet
+
+────────────────────────────────
+D0150 PATIENT MOOD INTERVIEW
+────────────────────────────────
+Two columns per row.
+
+Row A – Little interest or pleasure:
+• Column 1 → Symptom Presence (0–3)
+• Column 2 → Symptom Frequency (0–3)
+
+Row B – Feeling down/depressed:
+• Column 1 → Symptom Presence (0–3)
+• Column 2 → Symptom Frequency (0–3)
+
+────────────────────────────────
+PLAN OF CARE
+────────────────────────────────
+
+Activities Permitted:
+Return ONLY these labels (comma-separated):
+Complete Bed Rest,
+Up as Tolerated,
+Exercise Prescribed,
+Independent at Home,
+Cane,
+Walker,
+Bed Rest BRP,
+Transfer Bed-Chair,
+Partial Weight Bearing,
+Crutches,
+Wheelchair,
+Other,
+Needs assist with ADLs,
+Transfer Assistance,
+Fall Precautions,
+Slow Position Changes,
+Wound Care,
+Abdominal Surgery Precautions,
+Requires Supervision
+
+DME:
+Return ONLY these labels (comma-separated):
+Bedside Commode,
+Cane,
+Elevated Toilet Seat,
+Grab Bars,
+Hospital Bed,
+Nebulizer,
+Oxygen,
+Tub/Shower Bench,
+Walker,
+Wheelchair,
+Other,
+Bed Overlay,
+Brace/Orthotics,
+Crutches,
+Hoyer Lift,
+Respiratory Equipment,
+Slider Board,
+Trapeze,
+No-DME,
+CPAP Machine,
+Diabetic Supplies,
+Vital Sign Equipment,
+Removable Shower Head,
+Scooter,
+Wound Care Supplies,
+Alcohol/Hand Sanitizer,
+Lab Supplies, PPE
+
+────────────────────────────────
+FINAL SALESFORCE JSON KEYS (MANDATORY)
+────────────────────────────────
+
+Use EXACTLY these keys — do NOT add or remove any:
+
+SOC_Date
+ROC_Date
+Zip_Code
+Episode_Timing
+M0069
+M0080
+Inpatient_Discharge_Date
+M0090_Date_Assessment_Completed
+M1000_Discharge_History
+Activities_Permitted__c
+DME_Supplies__c
+M1200_Vision__c
+Little_interest_symptom_presence__c
+Little_interest_symptom_frequency__c
+Feeling_down_symptom_presence__c
+Feeling_down_symptom_frequency__c
+Functional_Points_M1033__c
+M1400_SOB_Actual__c
+M1700_Cognitive_Functioning__c
+M1710_When_Confused__c
+M1720_When_Anxious__c
+M1740_Cognitive_behavioral_and__c
+M1745_Frequncy_of_Disruptive_Behavior__c
+M1800_Grooming_Actual__c
+M1810_Ability_to_Dress_Upper_Body_Actual__c
+M1820_Ability_to_Dress_Lower_Body_Actual__c
+M1830_Bathing_Actual__c
+M1840_Toilet_Transferring_Actual__c
+M1845_Toilet_Hyg_Actual__c
+M1850_Transferring_Actual__c
+M1860_Ambulation_Locomotion_Actual__c
+M1870_Feeding_Actual__c
+M2020_Oral_Medications_Actual__c
+J0530_Pain_Interference_with_Day_to_Da__c
+
+GG0130_B_Oral_Hygiene__c
+GG0130_C_Toileting_Hygiene__c
+GG0130_E_Shower_bathe_self__c
+GG0130_F_Upper_body_dressing__c
+GG0130_G_Lower_body_dressing__c
+GG0130_H_Putting_on_taking_off_footwear__c
+
+GG0170_A_Roll_left_and_right__c
+GG0170_B_Sit_to_lying__c
+GG0170_C_Lying_to_sitting_on_side_of_bed__c
+GG0170_D_Sit_to_stand__c
+GG0170_E_Chair_bed_to_chair_transfer__c
+GG0170_F_Toilet_transfer__c
+GG0170_I_Walk_10_feet__c
+GG0170_J_Walk_50_feet_with_two_turns__c
+GG0170_K_Walk_150_feet__c
+GG0170_L_Walking_10_feet_on_uneven_surf__c
+GG0170_M_1_step_curb__c
+GG0170_N_4_steps__c
+GG0170_O_12_steps__c
+GG0170_R_Wheel_50_feet_with_two_turns__c
+GG0170_S_Wheel_150_feet__c
+
+────────────────────────────────
+FINAL OUTPUT RULE
+────────────────────────────────
+Return ONLY the JSON object.
+No text before or after.
+If something is missing → "N/A".
+
+`;
+
+    const response = await fetch(
+        `${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [
+                        { text: instructions },
+                        {
+                            inlineData: {
+                                mimeType: mimeType,
+                                data: base64Data
+                            }
+                        }
+                    ]
+                }]
+            })
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Gemini API call failed");
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+async function sendToSalesforce(rawJson, aiTimeSeconds) {
+
+    const response = await fetch(SALESFORCE_ENDPOINT, {
+        method: "POST",
+        headers: {
+            "Authorization": SALESFORCE_AUTH,
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            chartId: CHART_ID,
+            rawJson: rawJson,
+            aiTimeSeconds: aiTimeSeconds
+        })
+    });
+
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error("Salesforce save failed: " + text);
+    }
+}
+</script>
+
+</body>
+</html>
