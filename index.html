@@ -7,15 +7,14 @@
 <style>
     body {
         margin: 0;
-        padding: 20px; /* Added padding for scroll safety */
+        padding: 0;
         font-family: "Segoe UI", Arial, sans-serif;
         background: #0b1f2a;
         display: flex;
         justify-content: center;
         align-items: center;
-        min-height: 100vh; /* Changed from height to min-height */
+        height: 100vh;
         color: #ffffff;
-        box-sizing: border-box;
     }
 
     .card {
@@ -24,8 +23,6 @@
         border-radius: 14px;
         padding: 28px;
         box-shadow: 0 20px 50px rgba(0,0,0,.45);
-        display: flex;
-        flex-direction: column;
     }
 
     h2 {
@@ -50,39 +47,24 @@
         background: #06141c;
         color: #fff;
         cursor: pointer;
-        box-sizing: border-box; /* Ensures padding doesn't break width */
     }
 
-    /* Common Button Styles */
     button {
         margin-top: 18px;
         width: 100%;
         padding: 12px;
+        background: #4fa3ff;
         border: none;
         border-radius: 8px;
+        color: #000;
         font-weight: bold;
         font-size: 15px;
         cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    /* Analyze Button */
-    #analyzeBtn {
-        background: #4fa3ff;
-        color: #000;
-    }
-
-    /* Save Button (Green) */
-    #saveBtn {
-        background: #4cff9f;
-        color: #000;
-        display: none; /* Hidden by default */
     }
 
     button:disabled {
-        background: #6b6b6b !important;
+        background: #6b6b6b;
         cursor: not-allowed;
-        opacity: 0.7;
     }
 
     .status {
@@ -90,7 +72,6 @@
         font-size: 14px;
         min-height: 20px;
         text-align: center;
-        word-wrap: break-word;
     }
 
     .success {
@@ -99,37 +80,6 @@
 
     .error {
         color: #ff7a7a;
-    }
-
-    /* JSON Preview Box Styles */
-    #previewContainer {
-        display: none; /* Hidden by default */
-        margin-top: 20px;
-        border-top: 1px solid #333;
-        padding-top: 15px;
-    }
-
-    .json-box {
-        background: #000;
-        color: #0f0;
-        padding: 15px;
-        border-radius: 6px;
-        font-family: "Consolas", "Courier New", monospace;
-        font-size: 12px;
-        overflow: auto;
-        max-height: 300px; /* Scrollable if long */
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        border: 1px solid #333;
-        text-align: left;
-    }
-
-    .preview-label {
-        font-size: 13px;
-        font-weight: 600;
-        margin-bottom: 8px;
-        color: #ccc;
-        display: block;
     }
 </style>
 </head>
@@ -143,19 +93,10 @@
     <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
 
     <button id="analyzeBtn" onclick="startAnalysis()">
-        1. Analyze Document
+        Analyze & Save
     </button>
 
     <div id="status" class="status"></div>
-
-    <div id="previewContainer">
-        <span class="preview-label">Extracted JSON Data:</span>
-        <pre id="jsonPreview" class="json-box"></pre>
-        
-        <button id="saveBtn" onclick="finalizeSave()">
-            2. Confirm & Save to Salesforce
-        </button>
-    </div>
 </div>
 
 <script>
@@ -168,9 +109,7 @@ const GEMINI_API_KEY = "AIzaSyBdPQnjt8X8c1EPcU50Y6U1oJ_eyyL4yG4";
 
 // Gemini endpoint
 const GEMINI_ENDPOINT =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
-    // Note: I switched to 1.5-flash as 3-pro-preview might be unstable or require different headers. 
-    // If you specifically need 3-pro, revert this line, but 1.5 Flash is usually better for this.
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
 // 🔴 Replace with your Salesforce domain
 const SALESFORCE_ENDPOINT =
@@ -209,28 +148,14 @@ window.addEventListener("message", (event) => {
 
 
 /* =========================================================
-   GLOBAL STATE FOR SPLIT FLOW
-   ========================================================= */
-let cachedAiJson = null;
-let cachedAiTime = 0;
-
-/* =========================================================
-   MAIN FLOW - PART 1: ANALYZE
+   MAIN FLOW
    ========================================================= */
 
 async function startAnalysis() {
-    const status = document.getElementById("status");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-    const saveBtn = document.getElementById("saveBtn");
-    const previewContainer = document.getElementById("previewContainer");
-    const jsonPreview = document.getElementById("jsonPreview");
-    const file = document.getElementById("fileInput").files[0];
 
-    // Reset UI
-    saveBtn.style.display = "none";
-    previewContainer.style.display = "none";
-    jsonPreview.textContent = "";
-    cachedAiJson = null;
+    const status = document.getElementById("status");
+    const button = document.getElementById("analyzeBtn");
+    const file = document.getElementById("fileInput").files[0];
 
     if (!CHART_ID) {
         showStatus("❌ Salesforce record context not loaded", true);
@@ -243,74 +168,25 @@ async function startAnalysis() {
     }
 
     try {
-        analyzeBtn.disabled = true;
+        button.disabled = true;
+
         showStatus("Reading file...");
         const base64Data = await readFileAsBase64(file);
 
-        showStatus("Running AI analysis... (Please wait)");
+        showStatus("Running AI analysis...");
         const startTime = Date.now();
-        
-        // Call Gemini
-        let rawResult = await callGemini(file.type, base64Data);
-        
-        // Clean markdown if present (e.g., ```json ... ```)
-        rawResult = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
+        const aiResultJson = await callGemini(file.type, base64Data);
+        const aiTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
 
-        cachedAiTime = Math.floor((Date.now() - startTime) / 1000);
-        cachedAiJson = rawResult;
+        showStatus("Saving results to Salesforce...");
+        await sendToSalesforce(aiResultJson, aiTimeSeconds);
 
-        // Display Result
-        try {
-            // Pretty print JSON
-            const parsed = JSON.parse(rawResult);
-            jsonPreview.textContent = JSON.stringify(parsed, null, 2);
-        } catch (e) {
-            // If not valid JSON, just show text
-            jsonPreview.textContent = rawResult;
-            console.warn("AI response was not valid JSON:", e);
-        }
+        showStatus("✅ Analysis completed and saved successfully", false);
 
-        previewContainer.style.display = "block";
-        saveBtn.style.display = "block";
-        showStatus("✅ Analysis Complete. Please review and Save.", false);
-        
     } catch (error) {
         console.error(error);
         showStatus("❌ " + error.message, true);
-    } finally {
-        analyzeBtn.disabled = false;
-    }
-}
-
-/* =========================================================
-   MAIN FLOW - PART 2: SAVE
-   ========================================================= */
-
-async function finalizeSave() {
-    const saveBtn = document.getElementById("saveBtn");
-    const analyzeBtn = document.getElementById("analyzeBtn");
-    
-    if (!cachedAiJson) {
-        showStatus("❌ No analysis data to save. Run analysis first.", true);
-        return;
-    }
-
-    try {
-        saveBtn.disabled = true;
-        analyzeBtn.disabled = true; // Prevent re-analysis while saving
-        showStatus("Saving results to Salesforce...");
-
-        await sendToSalesforce(cachedAiJson, cachedAiTime);
-
-        showStatus("✅ Analysis saved successfully to Salesforce!", false);
-        saveBtn.style.display = "none"; // Hide save button after success
-
-    } catch (error) {
-        console.error(error);
-        showStatus("❌ Save failed: " + error.message, true);
-        saveBtn.disabled = false;
-    } finally {
-        analyzeBtn.disabled = false;
+        button.disabled = false;
     }
 }
 
