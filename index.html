@@ -126,16 +126,25 @@ const SALESFORCE_AUTH =
 let CHART_ID = null;
 
 // Receive recordId securely from Salesforce LWC
+const ALLOWED_ORIGINS = [
+    "https://codingdepartment--pcopy.sandbox.lightning.force.com",
+    "https://codingdepartment--pcopy.sandbox.my.salesforce.com"
+];
+
 window.addEventListener("message", (event) => {
 
-    // 🔐 SECURITY CHECK — very important
-    if (!event.origin.includes("salesforce.com")) return;
+    if (!ALLOWED_ORIGINS.some(origin =>
+        event.origin.startsWith(origin)
+    )) {
+        return;
+    }
 
     if (event.data && event.data.type === "SF_CONTEXT") {
         CHART_ID = event.data.recordId;
         console.log("✅ Chart Id received:", CHART_ID);
     }
 });
+
 
 /* =========================================================
    MAIN FLOW
