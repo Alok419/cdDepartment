@@ -40,7 +40,7 @@
         margin-bottom: 20px;
     }
 
-    input[type="file"], input[type="password"] {
+    input[type="file"] {
         width: 100%;
         padding: 12px;
         border-radius: 8px;
@@ -50,11 +50,6 @@
         cursor: pointer;
         box-sizing: border-box;
         margin-bottom: 10px;
-    }
-    
-    input[type="password"] {
-        cursor: text;
-        border: 1px solid #333;
     }
 
     button {
@@ -78,6 +73,7 @@
     button:disabled {
         background: #6b6b6b;
         cursor: not-allowed;
+        color: #d1d1d1;
     }
 
     /* Green Save Button style */
@@ -142,15 +138,18 @@
     <h2>AI OASIS Analyzer</h2>
     <p>Upload OASIS document to extract data</p>
 
-    <label>Gemini API Key (Paste here for testing):</label>
-    <input type="password" id="apiKeyInput" placeholder="Paste AIza... key here" />
+    <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
+        Connecting to Salesforce...
+    </div>
 
-    <label style="margin-top:10px;">Select Document:</label>
-    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+    <div id="mainControls" style="display:none;">
+        <label>Select Document:</label>
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
 
-    <button id="analyzeBtn" onclick="startAnalysis()">
-        Analyze Document
-    </button>
+        <button id="analyzeBtn" onclick="startAnalysis()">
+            Analyze Document
+        </button>
+    </div>
 
     <div id="status" class="status"></div>
 
@@ -166,71 +165,63 @@
 
 <script>
 /* =========================================================
-   CONFIGURATION
-   ========================================================= */
-
-// Updated to stable model to avoid 404 errors
-const GEMINI_ENDPOINT =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
-
-// 🔴 Replace with your Salesforce domain
-const SALESFORCE_ENDPOINT =
-    "https://codingdepartment--pcopy.sandbox.my.salesforce.com/services/apexrest/oasis/ai-result";
-
-// 🔴 POC ONLY — use session id or access token
-const SALESFORCE_AUTH =
-"Bearer 00DWB000000B4YB2A0!AQEAQJbGuC_UEOJ4LQm5zeAtSVcotBBMiMnF6yVFFNohNXyJHUq.dYhkjkkSEolqRlJ0mzbEBZeB.ShxBxTyejyKyA_M7yoK";
-
-
-/* =========================================================
-   SALESFORCE CONTEXT (AUTOMATIC RECORD ID)
+   GLOBAL CONTEXT (Populated via PostMessage)
    ========================================================= */
 
 let CHART_ID = null;
+let GEMINI_API_KEY = null;
+let SF_SESSION_ID = null;
+let SF_BASE_URL = null; 
 let CACHED_AI_TIME = 0;
 
-// Receive recordId securely from Salesforce LWC
+// Uses Gemini 1.5 Flash for speed/cost balance, change to Pro if needed
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
+
+/* =========================================================
+   LISTENER: RECEIVE DATA FROM SALESFORCE LWC
+   ========================================================= */
+
 const ALLOWED_ORIGINS = [
     "https://codingdepartment--pcopy.sandbox.lightning.force.com",
     "https://codingdepartment--pcopy.sandbox.my.salesforce.com"
+    // TODO: Add Production URL here when deploying
 ];
 
 window.addEventListener("message", (event) => {
-    if (!ALLOWED_ORIGINS.some(origin => event.origin.startsWith(origin))) {
-        return;
-    }
+    // Optional: Security check on event.origin if required strictly
+    
     if (event.data && event.data.type === "SF_CONTEXT") {
+        console.log("✅ Received Context from Salesforce");
+        
         CHART_ID = event.data.recordId;
-        console.log("✅ Chart Id received:", CHART_ID);
+        GEMINI_API_KEY = event.data.apiKey;
+        SF_SESSION_ID = event.data.sessionId;
+        SF_BASE_URL = event.data.baseUrl;
+        
+        // Update UI
+        document.getElementById("loadingMessage").style.display = "none";
+        document.getElementById("mainControls").style.display = "block";
+        
+        showStatus("✅ Connected. Ready to analyze.", false);
     }
 });
 
-
 /* =========================================================
-   MAIN FLOW
+   MAIN LOGIC
    ========================================================= */
 
 async function startAnalysis() {
-    const status = document.getElementById("status");
     const analyzeBtn = document.getElementById("analyzeBtn");
     const resultArea = document.getElementById("resultArea");
     const jsonOutput = document.getElementById("jsonOutput");
     const file = document.getElementById("fileInput").files[0];
     
-    // NEW: Get API Key from Input
-    const apiKey = document.getElementById("apiKeyInput").value.trim();
-
     // Reset UI
     resultArea.style.display = "none";
     jsonOutput.value = "";
     
-    if (!CHART_ID) {
-        showStatus("❌ Salesforce record context not loaded", true);
-        return;
-    }
-
-    if (!apiKey) {
-        showStatus("❌ Please enter a Gemini API Key", true);
+    if (!CHART_ID || !GEMINI_API_KEY) {
+        showStatus("❌ Configuration missing. Please refresh Salesforce page.", true);
         return;
     }
 
@@ -248,24 +239,21 @@ async function startAnalysis() {
         showStatus("Running AI analysis...");
         const startTime = Date.now();
         
-        // Pass apiKey to the function
-        const rawResult = await callGemini(apiKey, file.type, base64Data);
+        // Pass global GEMINI_API_KEY
+        const rawResult = await callGemini(GEMINI_API_KEY, file.type, base64Data);
         
-        // Calculate and cache time
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // Try to pretty print the JSON
+        // Pretty print logic
         let prettyJson = rawResult;
         try {
-            // Clean markdown block if present ```json ... ```
             const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
             const parsed = JSON.parse(cleanJson);
             prettyJson = JSON.stringify(parsed, null, 4);
         } catch (e) {
-            console.warn("Could not pretty print JSON, showing raw text.");
+            console.warn("Could not pretty print JSON");
         }
 
-        // Display results
         jsonOutput.value = prettyJson;
         resultArea.style.display = "block";
         analyzeBtn.disabled = false;
@@ -282,7 +270,7 @@ async function startAnalysis() {
 async function finalizeSave() {
     const saveBtn = document.getElementById("saveBtn");
     const jsonOutput = document.getElementById("jsonOutput");
-    const finalJson = jsonOutput.value; // Get (possibly edited) value
+    const finalJson = jsonOutput.value;
 
     if (!finalJson) {
         showStatus("❌ No data to save", true);
@@ -313,7 +301,7 @@ async function finalizeSave() {
 }
 
 /* =========================================================
-   HELPER FUNCTIONS
+   HELPER FUNCTIONS & API CALLS
    ========================================================= */
 
 function showStatus(message, isError = false) {
@@ -330,180 +318,103 @@ function readFileAsBase64(file) {
     });
 }
 
-// Updated function signature to accept apiKey
+// Call Gemini (Client Side)
 async function callGemini(apiKey, mimeType, base64Data) {
-
+    
+    // THE FULL PROMPT INSTRUCTIONS
     const instructions = `
 You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
 VISUAL INSTRUCTIONS
-
 This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
-
 Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or circled numbers.
-
 Ignore unchecked boxes (☐, [ ]).
 
 DATA FORMATTING RULES (CRITICAL)
-
 NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
-
 ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
-
 MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
-
 DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
 
 SECTION SPECIFIC RULES
-
 M-Items & B/D-Items:
-
 Find the question ID (e.g., M1830, B1000).
-
 Find the option that is VISUALLY marked.
-
 Extract the numeric code associated with that option.
 
 ITEMS TO EXTRACT
-
 If an item is not found or not visually marked, return "N/A".
 
 --- CHART DATA ---
-
 M0030 (Start of Care Date) -> Return YYYY-MM-DD
-
 M0032 (Resumption of Care Date) -> Return YYYY-MM-DD
-
-M0060 (Zip Code) -> Return ONLY the first 5 characters. Ignore any suffix (e.g. if 12345-6789, return 12345).
-
+M0060 (Zip Code) -> Return ONLY the first 5 characters. Ignore any suffix.
 M0110 (Episode Timing) -> Return code "1" (Early) or "2" (Later)
-
 M1005 (Inpatient Discharge Date) -> Return YYYY-MM-DD
-
-M0069 (Gender) -> Return code "1" (Male) or "2" (Female). If text says Male return 1, if Female return 2.
-
-M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT). If text says RN return 1, PT return 2, etc.
+M0069 (Gender) -> Return code "1" (Male) or "2" (Female).
+M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT).
 
 --- PLAN OF CARE / ORDERS ---
-
 Activities Permitted:
-
 Look for the header "Activities Permitted".
-
 Return a comma-separated list of EVERY checkbox that is visually marked.
-
 DME:
-
 Look for the header "DME".
-
 Return a comma-separated list of EVERY checkbox that is visually marked.
 
 --- OASIS ITEMS ---
-
 M0090 (Date Assessment Completed) -> Return YYYY-MM-DD
-
 M1000 (Inpatient Discharge History - list all checked numbers 1-7)
-
 M1033 (Risk for Hospitalization – list all checked numbers)
-
 B1000 (Vision)
-
 M1400 (Dyspnea)
-
 M1700 (Cognitive Functioning)
-
 M1710 (When Confused)
-
 M1720 (When Anxious)
-
 M1740 (Cognitive/Behavioral Symptoms – list all checked numbers)
-
 M1745 (Disruptive Behavior)
-
 M1800 (Grooming)
-
 M1810 (Upper Body Dressing)
-
 M1820 (Lower Body Dressing)
-
 M1830 (Bathing)
-
 M1840 (Toilet Transfer)
-
 M1845 (Toileting Hygiene)
-
 M1850 (Transferring)
-
 M1860 (Ambulation)
-
 M1870 (Feeding)
-
 M2020 (Oral Medications)
-
 J0530 (Pain Interference with Activities)
 
 --- GG ITEMS (SELF-CARE & MOBILITY) ---
 Extract the "SOC/ROC Performance" code (e.g., 06, 05, 04, 03, 02, 01, 07, 09, 10, 88) for the following items:
-
 GG0130 B (Oral Hygiene)
-
 GG0130 C (Toileting Hygiene)
-
 GG0130 E (Shower/Bathe Self)
-
 GG0130 F (Upper Body Dressing)
-
 GG0130 G (Lower Body Dressing)
-
 GG0130 H (Footwear)
-
 GG0170 A (Roll left/right)
-
 GG0170 B (Sit to lying)
-
 GG0170 C (Lying to sitting)
-
 GG0170 D (Sit to stand)
-
 GG0170 E (Chair/bed transfer)
-
 GG0170 F (Toilet transfer)
-
 GG0170 I (Walk 10 feet)
-
 GG0170 J (Walk 50 feet w/ turns)
-
 GG0170 K (Walk 150 feet)
-
 GG0170 L (Walk 10 feet uneven)
-
 GG0170 M (1 step/curb)
-
 GG0170 N (4 steps)
-
 GG0170 O (12 steps)
-
 GG0170 R (Wheel 50 feet)
-
 GG0170 S (Wheel 150 feet)
 
 --- D0150 PATIENT MOOD INTERVIEW ---
 This section has two columns. Extract the numeric code for checks in Row A and Row B.
-
-Row A (Little interest or pleasure in doing things):
-
-Column 1 Check (Symptom Presence) -> Extract Code (0, 1, 2, or 3)
-
-Column 2 Check (Symptom Frequency) -> Extract Code (0, 1, 2, or 3)
-
-Row B (Feeling down, depressed, or hopeless):
-
-Column 1 Check (Symptom Presence) -> Extract Code (0, 1, 2, or 3)
-
-Column 2 Check (Symptom Frequency) -> Extract Code (0, 1, 2, or 3)
+Row A (Little interest): Col 1 (Symptom), Col 2 (Frequency)
+Row B (Feeling down): Col 1 (Symptom), Col 2 (Frequency)
 
 SALESFORCE OUTPUT REQUIREMENT (MANDATORY)
-
 You must identify values using the OASIS codes above, but the FINAL OUTPUT must use the specific JSON keys below.
 
 Use this mapping EXACTLY:
@@ -565,77 +476,43 @@ GG0170 R -> GG0170_R_Wheel_50_feet_with_two_turns__c
 GG0170 S -> GG0170_S_Wheel_150_feet__c
 
 FINAL OUTPUT FORMAT (STRICT)
-
 Return ONLY valid JSON.
-
 Return a SINGLE flat JSON object.
-
 Keys MUST be the specific keys listed above.
-
 Values MUST be strings.
-
 Use comma-separated values for multi-select items.
-
 If an item is not found or not marked, return "N/A".
-
 Do NOT include markdown, backticks, explanations, or extra text.
-
 Do NOT include OASIS codes in the output keys.
-
 Do NOT add or remove keys.
 
 PICKLIST NORMALIZATION RULES (MANDATORY)
-
 Document wording and layouts may vary. Use semantic meaning, not exact text.
 Normalize selections to the VALID Salesforce picklist values below.
 Return ONLY the exact picklist label.
 
 Activities Permitted — VALID VALUES
-
 Complete Bed Rest, Up as Tolerated, Excercise Prescribed, Independent at Home, Cane, Walker, Best Rest BRP, Transfer Bed-Chair, Partial Weight Bearing, Crutches, Wheelchair, Other, Needs assist with ADLs, Transfer Assistance, Fall Precautions, Slow Position Changes, Wound Care, Abdom. Surgery Precautions, Requires Supervision
 
-Normalization examples:
-Bed bound / Confined to bed -> Complete Bed Rest
-BRP / Bed rest with BRP -> Best Rest BRP
-Human assistance required -> Needs assist with ADLs
-Bed to chair transfer -> Transfer Bed-Chair
-
 DME — VALID VALUES
-
 Bedside Commode, Cane, Elevated Toilet Seat, Grab Bars, Hospital Bed, Nebulizer, Oxygen, Tub/Shower Bench, Walker, Wheelchair, Other, Bed Overlay, Brace/Orthotics, Crutches, Hoyer Lift, Respiratory Equipment, Slider Board, Trapeze, No-DME, CPAP Machine, Diabetic Supplies, Vital Sign Equipment, Removable Shower Head, Scooter, Wound Care Supplies, Alcohol/Hand Sanitizer, Lab Supplies, PPE
 
-Normalization examples:
-Other: supplies -> Other
-Hand sanitizer / Alcohol pads -> Alcohol/Hand Sanitizer
-Bath bench -> Tub/Shower Bench
-
 OUTPUT ENFORCEMENT
-
 Output ONLY valid picklist labels.
-
 Multiple values must be comma-separated.
-
 If nothing applies, return "N/A".
-
-`;
+    `;
 
     const response = await fetch(
-        `${GEMINI_ENDPOINT}?key=${apiKey}`, // Uses the key from the input
+        `${GEMINI_ENDPOINT}?key=${apiKey}`,
         {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 contents: [{
                     parts: [
                         { text: instructions },
-                        {
-                            inlineData: {
-                                mimeType: mimeType,
-                                data: base64Data
-                            }
-                        }
+                        { inlineData: { mimeType: mimeType, data: base64Data } }
                     ]
                 }]
             })
@@ -643,9 +520,7 @@ If nothing applies, return "N/A".
     );
 
     if (!response.ok) {
-        // Log detailed error for debugging
         const errText = await response.text();
-        console.error("Gemini API Error:", errText);
         throw new Error("Gemini API call failed: " + response.statusText);
     }
 
@@ -653,12 +528,17 @@ If nothing applies, return "N/A".
     return data.candidates[0].content.parts[0].text;
 }
 
+// Call Salesforce Apex REST (Client Side)
 async function sendToSalesforce(rawJson, aiTimeSeconds) {
+    
+    // Construct Dynamic URL
+    // Endpoint: /services/apexrest/oasis/ai-result
+    const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
 
-    const response = await fetch(SALESFORCE_ENDPOINT, {
+    const response = await fetch(endpoint, {
         method: "POST",
         headers: {
-            "Authorization": SALESFORCE_AUTH,
+            "Authorization": "Bearer " + SF_SESSION_ID,
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
@@ -677,4 +557,3 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 
 </body>
 </html>
-
