@@ -175,7 +175,7 @@ let SF_BASE_URL = null;
 let CACHED_AI_TIME = 0;
 
 // Uses Gemini 1.5 Flash for speed/cost balance, change to Pro if needed
-const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"; 
+const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent"; 
 
 /* =========================================================
    LISTENER: RECEIVE DATA FROM SALESFORCE LWC
@@ -557,3 +557,4 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
 
 </body>
 </html>
+
