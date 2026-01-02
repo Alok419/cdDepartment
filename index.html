@@ -532,20 +532,55 @@
         </div>
         <script>
 
+// function showProgress() {
+//     document.getElementById("progressWrapper").style.display = "block";
+//     updateProgress(0);
+// }
+
+// function hideProgress() {
+//     document.getElementById("progressWrapper").style.display = "none";
+// }
+
+// function updateProgress(percent) {
+//     const bar = document.getElementById("progressBar");
+//     const label = document.getElementById("progressPercent");
+//     bar.style.width = percent + "%";
+//     label.innerText = percent + "%";
+// }
+
+let progressValue = 1;
+let progressTimer = null;
+
 function showProgress() {
+    progressValue = 1;
+    updateProgress(progressValue);
     document.getElementById("progressWrapper").style.display = "block";
-    updateProgress(0);
 }
 
 function hideProgress() {
+    clearInterval(progressTimer);
+    progressTimer = null;
     document.getElementById("progressWrapper").style.display = "none";
 }
 
-function updateProgress(percent) {
+function updateProgress(value) {
     const bar = document.getElementById("progressBar");
     const label = document.getElementById("progressPercent");
-    bar.style.width = percent + "%";
-    label.innerText = percent + "%";
+
+    const safeValue = Math.min(100, Math.max(1, value));
+    bar.style.width = safeValue + "%";
+    label.innerText = safeValue + "%";
+}
+
+function startAutoProgress(to = 90, speed = 300) {
+    clearInterval(progressTimer);
+
+    progressTimer = setInterval(() => {
+        if (progressValue < to) {
+            progressValue += 1;
+            updateProgress(progressValue);
+        }
+    }, speed);
 }
 
 
@@ -698,46 +733,30 @@ async function startAnalysis() {
     analyzeBtn.disabled = true;
     disableUploadUI();
     showProgress();
+    startAutoProgress(90, 250);
 
-    // STEP 1: Reading files (0 → 30%)
+    /* STEP 1: Read files */
     showStatus(`Reading ${selectedFiles.length} file(s)...`);
-    updateProgress(10);
+    const fileDataArray = await Promise.all(
+        selectedFiles.map(file => readFileAsBase64(file))
+    );
 
-    const filePromises = selectedFiles.map(file => readFileAsBase64(file));
-    updateProgress(20);
-    const fileDataArray = await Promise.all(filePromises);
-
-    updateProgress(30);
-
-    // STEP 2: AI Processing (30 → 90%)
+    /* STEP 2: AI Processing */
     showStatus("Running AI analysis...");
-    updateProgress(40);
     const startTime = Date.now();
-
     const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
-
-    updateProgress(95);
-
     CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-    // Pretty print
-    let prettyJson = rawResult;
-    try {
-        const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(cleanJson);
-        prettyJson = JSON.stringify(parsed, null, 4);
-    } catch {}
-
-    document.getElementById("jsonOutput").value = prettyJson;
-    document.getElementById("resultArea").style.display = "block";
-
-    // STEP 3: Done (100%)
+    /* STEP 3: Finish */
+    clearInterval(progressTimer);
+    progressValue = 100;
     updateProgress(100);
+
     showStatus("✅ Analysis complete. Please review data below.", false);
 
     setTimeout(() => {
         hideProgress();
-        document.getElementById("mainControls").style.display = "none"; // 👈 HIDE UPLOAD UI
+        document.getElementById("mainControls").style.display = "none";
     }, 600);
 
     analyzeBtn.disabled = false;
@@ -999,7 +1018,7 @@ Output ONLY valid picklist labels.
 Multiple values must be comma-separated.
 If nothing applies, return "N/A".
     `;
-updateProgress(50);
+updateProgress(60);
     // Construct the parts array for multiple files
     const parts = [{ text: instructions }];
     fileDataArray.forEach(f => {
@@ -1019,7 +1038,6 @@ updateProgress(50);
         }
     );
 
-    updateProgress(60);
     if (!response.ok) {
         const errText = await response.text();
         throw new Error("Gemini API call failed: " + response.statusText);
@@ -1028,7 +1046,7 @@ updateProgress(50);
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
 }
-updateProgress(70);
+
 // 1. Save JSON to Custom Apex REST API
 async function sendToSalesforce(rawJson, aiTimeSeconds) {
     const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
@@ -1051,7 +1069,7 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
         throw new Error("Salesforce save failed: " + text);
     }
 }
-updateProgress(80);
+
 // 2. Upload Files directly to ContentVersion (Standard Salesforce API)
 async function saveFilesToSalesforceRecord() {
     const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
