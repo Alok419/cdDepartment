@@ -532,55 +532,20 @@
         </div>
         <script>
 
-// function showProgress() {
-//     document.getElementById("progressWrapper").style.display = "block";
-//     updateProgress(0);
-// }
-
-// function hideProgress() {
-//     document.getElementById("progressWrapper").style.display = "none";
-// }
-
-// function updateProgress(percent) {
-//     const bar = document.getElementById("progressBar");
-//     const label = document.getElementById("progressPercent");
-//     bar.style.width = percent + "%";
-//     label.innerText = percent + "%";
-// }
-
-let progressValue = 1;
-let progressTimer = null;
-
 function showProgress() {
-    progressValue = 1;
-    updateProgress(progressValue);
     document.getElementById("progressWrapper").style.display = "block";
+    updateProgress(0);
 }
 
 function hideProgress() {
-    clearInterval(progressTimer);
-    progressTimer = null;
     document.getElementById("progressWrapper").style.display = "none";
 }
 
-function updateProgress(value) {
+function updateProgress(percent) {
     const bar = document.getElementById("progressBar");
     const label = document.getElementById("progressPercent");
-
-    const safeValue = Math.min(100, Math.max(1, value));
-    bar.style.width = safeValue + "%";
-    label.innerText = safeValue + "%";
-}
-
-function startAutoProgress(to = 90, speed = 300) {
-    clearInterval(progressTimer);
-
-    progressTimer = setInterval(() => {
-        if (progressValue < to) {
-            progressValue += 1;
-            updateProgress(progressValue);
-        }
-    }, speed);
+    bar.style.width = percent + "%";
+    label.innerText = percent + "%";
 }
 
 
@@ -733,34 +698,50 @@ async function startAnalysis() {
     analyzeBtn.disabled = true;
     disableUploadUI();
     showProgress();
-    startAutoProgress(0, 250);
 
-    /* STEP 1: Read files */
+    // STEP 1: Reading files (0 → 30%)
     showStatus(`Reading ${selectedFiles.length} file(s)...`);
-    const fileDataArray = await Promise.all(
-        selectedFiles.map(file => readFileAsBase64(file))
-    );
+    updateProgress(10);
 
-    /* STEP 2: AI Processing */
+    const filePromises = selectedFiles.map(file => readFileAsBase64(file));
+    updateProgress(20);
+    const fileDataArray = await Promise.all(filePromises);
+
+    updateProgress(30);
+
+    // STEP 2: AI Processing (30 → 90%)
     showStatus("Running AI analysis...");
+    updateProgress(40);
     const startTime = Date.now();
+
+    updateProgress(50);
+    
+    updateProgress(70);
+    updateProgress(90);
     const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
+
+    updateProgress(95);
+
     CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-    /* STEP 3: Finish */
-    clearInterval(progressTimer);
-    progressValue = 100;
-    updateProgress(100);
+    // Pretty print
+    let prettyJson = rawResult;
+    try {
+        const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(cleanJson);
+        prettyJson = JSON.stringify(parsed, null, 4);
+    } catch {}
 
-    showStatus("✅ Oasis Data and files are saved successfully.", false);
-     setTimeout(() => {
-                    window.location.href = `/lightning/r/Chart__c/${this.CHART_ID}/view`;
-                }, 800);
- 
+    document.getElementById("jsonOutput").value = prettyJson;
+    document.getElementById("resultArea").style.display = "block";
+
+    // STEP 3: Done (100%)
+    updateProgress(100);
+    showStatus("✅ Analysis complete. Please review data below.", false);
 
     setTimeout(() => {
         hideProgress();
-        document.getElementById("mainControls").style.display = "none";
+        document.getElementById("mainControls").style.display = "none"; // 👈 HIDE UPLOAD UI
     }, 600);
 
     analyzeBtn.disabled = false;
