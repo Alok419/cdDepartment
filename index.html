@@ -530,6 +530,8 @@
                 </button>
             </div>
         </div>
+        
+        
         <script>
 
 function showProgress() {
@@ -748,16 +750,20 @@ async function startAnalysis() {
     updateProgress(10);
 
     const filePromises = selectedFiles.map(file => readFileAsBase64(file));
+    updateProgress(20);
     const fileDataArray = await Promise.all(filePromises);
 
     updateProgress(30);
 
     // STEP 2: AI Processing (30 → 90%)
     showStatus("Running AI analysis...");
+    pdateProgress(40);
     const startTime = Date.now();
 
     updateProgress(50);
-
+    updateProgress(60);
+    updateProgress(70);
+    updateProgress(80);
     const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
 
     updateProgress(90);
