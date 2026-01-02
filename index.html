@@ -618,50 +618,6 @@ function removeFile(index) {
     renderFileList();
 }
 
-// function renderFileList() {
-//     const container = document.getElementById("fileListContainer");
-//     const header = document.getElementById("fileSectionHeader");
-//     const countSpan = document.getElementById("fileCount");
-    
-//     container.innerHTML = ""; // Clear current view
-
-//     if (selectedFiles.length === 0) {
-//         container.style.display = "none";
-//         header.style.display = "none";
-//         return;
-//     }
-
-//     // Show Header and Container
-//     header.style.display = "block";
-//     container.style.display = "block";
-//     countSpan.innerText = selectedFiles.length;
-
-//     // Generate Cards
-//     selectedFiles.forEach((file, index) => {
-//         const item = document.createElement("div");
-//         item.className = "file-item";
-        
-//         // Trash Icon SVG
-//         const trashIconSvg = `
-//             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-//                 <polyline points="3 6 5 6 21 6"></polyline>
-//                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-//             </svg>
-//         `;
-
-//         item.innerHTML = `
-//             <div class="file-info">
-//                 <span class="file-icon">📄</span> 
-//                 <span class="file-name">${file.name}</span>
-//             </div>
-//             <button class="remove-btn" onclick="removeFile(${index})" title="Remove File">
-//                 ${trashIconSvg}
-//             </button>
-//         `;
-//         container.appendChild(item);
-//     });
-// }
-
 
 function renderFileList() {
     const container = document.getElementById("fileListContainer");
@@ -758,10 +714,6 @@ async function startAnalysis() {
     updateProgress(40);
     const startTime = Date.now();
 
-    updateProgress(50);
-    updateProgress(60);
-    updateProgress(70);
-    updateProgress(90);
     const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
 
     updateProgress(95);
@@ -1047,7 +999,7 @@ Output ONLY valid picklist labels.
 Multiple values must be comma-separated.
 If nothing applies, return "N/A".
     `;
-
+updateProgress(50);
     // Construct the parts array for multiple files
     const parts = [{ text: instructions }];
     fileDataArray.forEach(f => {
@@ -1067,6 +1019,7 @@ If nothing applies, return "N/A".
         }
     );
 
+    updateProgress(60);
     if (!response.ok) {
         const errText = await response.text();
         throw new Error("Gemini API call failed: " + response.statusText);
@@ -1075,7 +1028,7 @@ If nothing applies, return "N/A".
     const data = await response.json();
     return data.candidates[0].content.parts[0].text;
 }
-
+updateProgress(70);
 // 1. Save JSON to Custom Apex REST API
 async function sendToSalesforce(rawJson, aiTimeSeconds) {
     const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
@@ -1098,7 +1051,7 @@ async function sendToSalesforce(rawJson, aiTimeSeconds) {
         throw new Error("Salesforce save failed: " + text);
     }
 }
-
+updateProgress(80);
 // 2. Upload Files directly to ContentVersion (Standard Salesforce API)
 async function saveFilesToSalesforceRecord() {
     const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
