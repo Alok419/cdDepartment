@@ -217,7 +217,7 @@
     </head>
     <body>
         <div class="card">
-            <h2>AI OASIS Analyzer</h2>
+            <h2>AI OASIS Analyzer New</h2>
             <p>Upload OASIS document(s) to extract data</p>
             <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
                 Connecting to Salesforce...
@@ -819,9 +819,12 @@ async function finalizeSave() {
         }
 
         showStatus("✅ Data & Files Saved Successfully!", false);
-         setTimeout(() => {
-                    window.location.href = `/lightning/r/Chart__c/${this.CHART_ID}/view`;
-                }, 800);
+        const baseUrl = window.location.origin;
+        console.log(baseUrl);
+
+        setTimeout(() => {
+            window.location.href = `${baseUrl}/lightning/r/Chart__c/${this.CHART_ID}/view`;
+        }, 800);
  
         saveBtn.innerText = "Saved";
         
