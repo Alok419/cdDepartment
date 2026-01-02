@@ -456,6 +456,16 @@
                 background: #ffecec;
                 color: #d64545;
             }
+            /* Disable entire upload area */
+            .upload-disabled {
+                pointer-events: none;
+                opacity: 0.45;
+            }
+
+            /* Optional: show loading cursor */
+            .upload-disabled * {
+                cursor: wait !important;
+            }
             </style>
             <div id="mainControls" class="upload-card" style="display:none;">
                 <!-- Header -->
@@ -509,6 +519,15 @@
             </div>
         </div>
         <script>
+
+            function disableUploadUI() {
+    document.getElementById("mainControls").classList.add("upload-disabled");
+}
+
+function enableUploadUI() {
+    document.getElementById("mainControls").classList.remove("upload-disabled");
+}
+
 /* =========================================================
    GLOBAL CONTEXT (Populated via PostMessage)
    ========================================================= */
@@ -690,6 +709,7 @@ async function startAnalysis() {
 
     try {
         analyzeBtn.disabled = true;
+        disableUploadUI();   // 🔒 LOCK upload + previews
         showStatus(`Reading ${selectedFiles.length} file(s)...`);
         
         // Read all files as Base64
@@ -717,6 +737,7 @@ async function startAnalysis() {
         jsonOutput.value = prettyJson;
         resultArea.style.display = "block";
         analyzeBtn.disabled = false;
+        enableUploadUI();   // 🔓 UNLOCK on success
         
         showStatus("✅ Analysis complete. Please review data below.", false);
 
@@ -724,6 +745,7 @@ async function startAnalysis() {
         console.error(error);
         showStatus("❌ " + error.message, true);
         analyzeBtn.disabled = false;
+         enableUploadUI();   // 🔓 UNLOCK on error
     }
 }
 
