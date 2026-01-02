@@ -761,10 +761,10 @@ async function startAnalysis() {
     updateProgress(50);
     updateProgress(60);
     updateProgress(70);
-    updateProgress(80);
+    updateProgress(90);
     const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
 
-    updateProgress(90);
+    updateProgress(95);
 
     CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
