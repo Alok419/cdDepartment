@@ -509,16 +509,45 @@
                     Analyze Documents
                 </button>
             </div>
+            <!-- Progress Bar -->
+            <div id="progressWrapper" style="display:none; margin-top:20px;">
+                <div style="font-size:13px; margin-bottom:6px; color:#9bb9d4;">
+                    Analyzing documents...
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div style="background:#102a3a; border-radius:10px; overflow:hidden; height:10px;">
+                    <div id="progressBar" style="height:100%; width:0%; background:linear-gradient(90deg,#4fa3ff,#7abaff); transition:width 0.4s ease;"></div>
+                </div>
+            </div>
             <div id="status" class="status"></div>
             <div id="resultArea">
                 <label>Review AI Extraction Result:</label>
                 <textarea id="jsonOutput"></textarea>
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-                    Save Data & Files to Salesforce
+                    Save Data & Files
                 </button>
             </div>
         </div>
         <script>
+
+function showProgress() {
+    document.getElementById("progressWrapper").style.display = "block";
+    updateProgress(0);
+}
+
+function hideProgress() {
+    document.getElementById("progressWrapper").style.display = "none";
+}
+
+function updateProgress(percent) {
+    const bar = document.getElementById("progressBar");
+    const label = document.getElementById("progressPercent");
+    bar.style.width = percent + "%";
+    label.innerText = percent + "%";
+}
+
+
+
 
             function disableUploadUI() {
     document.getElementById("mainControls").classList.add("upload-disabled");
@@ -708,45 +737,62 @@ async function startAnalysis() {
     }
 
     try {
-        analyzeBtn.disabled = true;
-        disableUploadUI();   // 🔒 LOCK upload + previews
-        showStatus(`Reading ${selectedFiles.length} file(s)...`);
-        
-        // Read all files as Base64
-        const filePromises = selectedFiles.map(file => readFileAsBase64(file));
-        const fileDataArray = await Promise.all(filePromises);
+    analyzeBtn.disabled = true;
+    disableUploadUI();
+    showProgress();
 
-        showStatus("Running AI analysis...");
-        const startTime = Date.now();
-        
-        // Pass global GEMINI_API_KEY and the Array of files
-        const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
-        
-        CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
+    // STEP 1: Reading files (0 → 30%)
+    showStatus(`Reading ${selectedFiles.length} file(s)...`);
+    updateProgress(10);
 
-        // Pretty print logic
-        let prettyJson = rawResult;
-        try {
-            const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
-            const parsed = JSON.parse(cleanJson);
-            prettyJson = JSON.stringify(parsed, null, 4);
-        } catch (e) {
-            console.warn("Could not pretty print JSON");
-        }
+    const filePromises = selectedFiles.map(file => readFileAsBase64(file));
+    const fileDataArray = await Promise.all(filePromises);
 
-        jsonOutput.value = prettyJson;
-        resultArea.style.display = "block";
-        analyzeBtn.disabled = false;
-        enableUploadUI();   // 🔓 UNLOCK on success
-        
-        showStatus("✅ Analysis complete. Please review data below.", false);
+    updateProgress(30);
 
-    } catch (error) {
-        console.error(error);
-        showStatus("❌ " + error.message, true);
-        analyzeBtn.disabled = false;
-         enableUploadUI();   // 🔓 UNLOCK on error
-    }
+    // STEP 2: AI Processing (30 → 90%)
+    showStatus("Running AI analysis...");
+    const startTime = Date.now();
+
+    updateProgress(50);
+
+    const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
+
+    updateProgress(90);
+
+    CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
+
+    // Pretty print
+    let prettyJson = rawResult;
+    try {
+        const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(cleanJson);
+        prettyJson = JSON.stringify(parsed, null, 4);
+    } catch {}
+
+    document.getElementById("jsonOutput").value = prettyJson;
+    document.getElementById("resultArea").style.display = "block";
+
+    // STEP 3: Done (100%)
+    updateProgress(100);
+    showStatus("✅ Analysis complete. Please review data below.", false);
+
+    setTimeout(() => {
+        hideProgress();
+        document.getElementById("mainControls").style.display = "none"; // 👈 HIDE UPLOAD UI
+    }, 600);
+
+    analyzeBtn.disabled = false;
+    enableUploadUI();
+
+} catch (error) {
+    console.error(error);
+    showStatus("❌ " + error.message, true);
+    analyzeBtn.disabled = false;
+    enableUploadUI();
+    hideProgress();
+}
+
 }
 
 async function finalizeSave() {
