@@ -217,7 +217,7 @@
     </head>
     <body>
         <div class="card">
-            <h2>AI OASIS Analyzer New</h2>
+            <h2>AI OASIS Analyzer</h2>
             <p>Upload OASIS document(s) to extract data</p>
             <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
                 Connecting to Salesforce...
@@ -532,32 +532,67 @@
         </div>
         <script>
 
+                // function showProgress() {
+                //     document.getElementById("progressWrapper").style.display = "block";
+                //     updateProgress(0);
+                // }
+
+                // function hideProgress() {
+                //     document.getElementById("progressWrapper").style.display = "none";
+                // }
+
+                // function updateProgress(percent) {
+                //     const bar = document.getElementById("progressBar");
+                //     const label = document.getElementById("progressPercent");
+                //     bar.style.width = percent + "%";
+                //     label.innerText = percent + "%";
+                // }
+
+                let progressValue = 1;
+let progressTimer = null;
+
 function showProgress() {
+    progressValue = 1;
+    updateProgress(progressValue);
     document.getElementById("progressWrapper").style.display = "block";
-    updateProgress(0);
 }
 
 function hideProgress() {
+    clearInterval(progressTimer);
+    progressTimer = null;
     document.getElementById("progressWrapper").style.display = "none";
 }
 
-function updateProgress(percent) {
+function updateProgress(value) {
     const bar = document.getElementById("progressBar");
     const label = document.getElementById("progressPercent");
-    bar.style.width = percent + "%";
-    label.innerText = percent + "%";
+
+    const safeValue = Math.min(100, Math.max(1, value));
+    bar.style.width = safeValue + "%";
+    label.innerText = safeValue + "%";
+}
+
+function startAutoProgress(to = 1, speed = 300) {
+    clearInterval(progressTimer);
+
+    progressTimer = setInterval(() => {
+        if (progressValue < to) {
+            progressValue += 1;
+            updateProgress(progressValue);
+        }
+    }, speed);
 }
 
 
 
 
             function disableUploadUI() {
-    document.getElementById("mainControls").classList.add("upload-disabled");
-}
+                document.getElementById("mainControls").classList.add("upload-disabled");
+            }
 
-function enableUploadUI() {
-    document.getElementById("mainControls").classList.remove("upload-disabled");
-}
+            function enableUploadUI() {
+                document.getElementById("mainControls").classList.remove("upload-disabled");
+            }
 
 /* =========================================================
    GLOBAL CONTEXT (Populated via PostMessage)
@@ -697,51 +732,49 @@ async function startAnalysis() {
     try {
     analyzeBtn.disabled = true;
     disableUploadUI();
-    showProgress();
 
-    // STEP 1: Reading files (0 → 30%)
+    // 1️⃣ Show progress and start auto count
+    showProgress();              // starts at 1%
+    startAutoProgress(90, 250);  // auto count till 90%
+
+    // 2️⃣ Read files
     showStatus(`Reading ${selectedFiles.length} file(s)...`);
-    updateProgress(10);
+    const fileDataArray = await Promise.all(
+        selectedFiles.map(file => readFileAsBase64(file))
+    );
 
-    const filePromises = selectedFiles.map(file => readFileAsBase64(file));
-    updateProgress(20);
-    const fileDataArray = await Promise.all(filePromises);
-
-    updateProgress(30);
-
-    // STEP 2: AI Processing (30 → 90%)
+    // 3️⃣ AI processing
     showStatus("Running AI analysis...");
-    updateProgress(40);
     const startTime = Date.now();
 
-    updateProgress(50);
-    
-    updateProgress(70);
-    updateProgress(90);
     const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
-
-    updateProgress(95);
 
     CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-    // Pretty print
+    // 4️⃣ Stop auto progress & finish to 100%
+    clearInterval(progressTimer);
+    progressValue = 100;
+    updateProgress(100);
+
+    // 5️⃣ Pretty print JSON
     let prettyJson = rawResult;
     try {
-        const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
-        const parsed = JSON.parse(cleanJson);
-        prettyJson = JSON.stringify(parsed, null, 4);
+        const cleanJson = rawResult
+            .replace(/```json/g, "")
+            .replace(/```/g, "")
+            .trim();
+        prettyJson = JSON.stringify(JSON.parse(cleanJson), null, 4);
     } catch {}
 
     document.getElementById("jsonOutput").value = prettyJson;
     document.getElementById("resultArea").style.display = "block";
 
-    // STEP 3: Done (100%)
-    updateProgress(100);
     showStatus("✅ Analysis complete. Please review data below.", false);
 
+    // 6️⃣ Hide progress & upload UI
     setTimeout(() => {
         hideProgress();
-        document.getElementById("mainControls").style.display = "none"; // 👈 HIDE UPLOAD UI
+        document.getElementById("mainControls").style.display = "none";
     }, 600);
 
     analyzeBtn.disabled = false;
@@ -749,11 +782,15 @@ async function startAnalysis() {
 
 } catch (error) {
     console.error(error);
+
+    clearInterval(progressTimer);
+    hideProgress();
+
     showStatus("❌ " + error.message, true);
     analyzeBtn.disabled = false;
     enableUploadUI();
-    hideProgress();
 }
+
 
 }
 
