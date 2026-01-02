@@ -733,7 +733,7 @@ async function startAnalysis() {
     analyzeBtn.disabled = true;
     disableUploadUI();
     showProgress();
-    startAutoProgress(90, 250);
+    startAutoProgress(0, 250);
 
     /* STEP 1: Read files */
     showStatus(`Reading ${selectedFiles.length} file(s)...`);
@@ -752,7 +752,11 @@ async function startAnalysis() {
     progressValue = 100;
     updateProgress(100);
 
-    showStatus("✅ Analysis complete. Please review data below.", false);
+    showStatus("✅ Oasis Data and files are saved successfully.", false);
+     setTimeout(() => {
+                    window.location.href = `/lightning/r/Chart__c/${this.CHART_ID}/view`;
+                }, 800);
+ 
 
     setTimeout(() => {
         hideProgress();
