@@ -234,7 +234,21 @@
         <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
             Connecting to Salesforce...
         </div>
-        
+        <!-- <div id="mainControls" >
+        <label>Select Document(s):</label>
+        <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(this)" />
+
+        <div id="fileSectionHeader" class="file-section-header">
+            Uploaded Files (<span id="fileCount">0</span>)
+        </div>
+
+        <div id="fileListContainer">
+        </div>
+
+        <button id="analyzeBtn" onclick="startAnalysis()">
+            Analyze Document
+        </button>
+    </div> -->
         <style>
         /* Card Container */
         .upload-card {
@@ -467,6 +481,7 @@
         }
         </style>
         <div id="mainControls" class="upload-card" style="display:none;">
+            <!-- Header -->
             <div class="upload-header">
                 <div class="upload-icon">📄</div>
                 <div>
@@ -476,6 +491,7 @@
                     </div>
                 </div>
             </div>
+            <!-- Upload Area -->
             <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
                 <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple
                     onchange="handleFileSelect(this)" hidden>
@@ -484,18 +500,23 @@
                     Click to upload or drag files here
                 </div>
                 <div class="upload-zone-hint">
-                    </div>
+                    <!-- PDF, JPG, PNG, DOC, DOCX -->
+                </div>
             </div>
+            <!-- File Section Header -->
             <div id="fileSectionHeader" class="file-section-header">
                 Uploaded Files (
                 <span id="fileCount">0</span>
                 )
             </div>
+            <!-- File List -->
             <div id="fileListContainer" class="file-list"></div>
+            <!-- Action Button -->
             <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
                 Analyze Documents
             </button>
         </div>
+        <!-- Progress Bar -->
         <div id="progressWrapper" style="display:none; margin-top:20px;">
             <div style="font-size:13px; margin-bottom:6px; color:#9bb9d4;">
                 Analyzing documents...
@@ -509,7 +530,7 @@
         </div>
         <div id="status" class="status"></div>
         <div id="resultArea">
-            <div style="margin-bottom: 10px;">
+            <div style="display :none">
                 <label>Review AI Extraction Result:</label>
                 <textarea id="jsonOutput"></textarea>
             </div>
@@ -520,19 +541,19 @@
     </div>
     <script>
     // function showProgress() {
-    //      document.getElementById("progressWrapper").style.display = "block";
-    //      updateProgress(0);
+    //     document.getElementById("progressWrapper").style.display = "block";
+    //     updateProgress(0);
     // }
 
     // function hideProgress() {
-    //      document.getElementById("progressWrapper").style.display = "none";
+    //     document.getElementById("progressWrapper").style.display = "none";
     // }
 
     // function updateProgress(percent) {
-    //      const bar = document.getElementById("progressBar");
-    //      const label = document.getElementById("progressPercent");
-    //      bar.style.width = percent + "%";
-    //      label.innerText = percent + "%";
+    //     const bar = document.getElementById("progressBar");
+    //     const label = document.getElementById("progressPercent");
+    //     bar.style.width = percent + "%";
+    //     label.innerText = percent + "%";
     // }
 
     let progressValue = 1;
@@ -761,7 +782,7 @@
             document.getElementById("mainControls").style.display = "none";
 
             // 6️⃣ Hide progress & upload UI
-            
+           
 
             analyzeBtn.disabled = false;
             enableUploadUI();
@@ -805,7 +826,7 @@
             }
 
             showStatus("✅ Data & Files Saved Successfully!", false);
-            
+           
 
             setTimeout(() => {
                 window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
@@ -1033,7 +1054,7 @@ Output ONLY valid picklist labels.
 Multiple values must be comma-separated.
 If nothing applies, return "N/A".
     `;
-       
+        
         // Construct the parts array for multiple files
         const parts = [{
             text: instructions
@@ -1143,4 +1164,3 @@ If nothing applies, return "N/A".
 </body>
 
 </html>
-
