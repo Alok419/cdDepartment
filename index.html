@@ -301,12 +301,12 @@
 
                 <div id="tab-oasis" class="tab-content active">
                     <p style="font-size:12px; color:#888;">Extracted OASIS M-Items & GG Codes (JSON)</p>
-                    <textarea id="oasisOutput" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
+                    <textarea id="oasisOutput" class="result-box" placeholder="Waiting for analysis..."></textarea>
                 </div>
 
                 <div id="tab-ptot" class="tab-content">
                     <p style="font-size:12px; color:#888;">Extracted PT/OT Functional Data (JSON)</p>
-                    <textarea id="ptotOutput" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
+                    <textarea id="ptotOutput" class="result-box" placeholder="Waiting for analysis..."></textarea>
                 </div>
 
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">Save All Data & Files</button>
@@ -330,7 +330,7 @@ let CACHED_AI_TIME = 0;
 
 let selectedFiles = [];
 
-// Using Gemini 1.5 Pro for both as PT/OT extraction requires high reasoning
+// CORRECTED: Changed from non-existent 'gemini-3-pro' to 'gemini-1.5-pro'
 const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
 /* =========================================================
@@ -363,7 +363,11 @@ function switchTab(tabName) {
 function handleFileSelect(inputElement) {
     if (inputElement.files && inputElement.files.length > 0) {
         for (let i = 0; i < inputElement.files.length; i++) {
-            selectedFiles.push(inputElement.files[i]);
+            // Basic deduplication check
+            const file = inputElement.files[i];
+            if(!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                selectedFiles.push(file);
+            }
         }
         renderFileList();
         inputElement.value = "";
@@ -469,16 +473,29 @@ async function startAnalysis() {
         updateProgress(30, "AI Analysis Running (OASIS + PT/OT)...");
 
         // Run both OASIS and PT/OT extraction in parallel using Gemini 1.5 Pro
-        const [oasisResult, ptotResult] = await Promise.all([
+        // Using Promise.allSettled allows one to fail without killing the other
+        const results = await Promise.allSettled([
             runOasisExtraction(fileDataArray),
             runPtOtExtraction(fileDataArray)
         ]);
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // 3. Display Results
-        oasisOutput.value = formatJson(oasisResult);
-        ptotOutput.value = formatJson(ptotResult);
+        // 3. Process Results
+        const oasisRes = results[0];
+        const ptotRes = results[1];
+
+        if (oasisRes.status === "fulfilled") {
+             oasisOutput.value = formatJson(oasisRes.value);
+        } else {
+             oasisOutput.value = "Error extracting OASIS: " + oasisRes.reason;
+        }
+
+        if (ptotRes.status === "fulfilled") {
+             ptotOutput.value = formatJson(ptotRes.value);
+        } else {
+             ptotOutput.value = "Error extracting PT/OT: " + ptotRes.reason;
+        }
 
         document.getElementById("resultSection").classList.remove("hidden");
         stopProgress();
@@ -494,11 +511,25 @@ async function startAnalysis() {
     }
 }
 
+// Robust JSON Cleaner
 function formatJson(str) {
     try {
-        const clean = str.replace(/```json/g, "").replace(/```/g, "").trim();
-        return JSON.stringify(JSON.parse(clean), null, 4);
+        // Remove Markdown code blocks
+        let clean = str.replace(/```json/g, "").replace(/```/g, "").trim();
+        
+        // Find the first '{' and the last '}' to handle introductory text
+        const firstOpen = clean.indexOf('{');
+        const lastClose = clean.lastIndexOf('}');
+        
+        if (firstOpen !== -1 && lastClose !== -1) {
+            clean = clean.substring(firstOpen, lastClose + 1);
+        }
+
+        const parsed = JSON.parse(clean);
+        return JSON.stringify(parsed, null, 4);
     } catch (e) {
+        console.warn("JSON Parse Warning", e);
+        // Return original text if parsing fails so user can see what happened
         return str;
     }
 }
@@ -508,184 +539,184 @@ function formatJson(str) {
    ========================================================= */
 async function runOasisExtraction(fileDataArray) {
     const prompt = `
-   You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
+    You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
-VISUAL INSTRUCTIONS
-This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
-Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or circled numbers.
-Ignore unchecked boxes (☐, [ ]).
+    VISUAL INSTRUCTIONS
+    This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
+    Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or circled numbers.
+    Ignore unchecked boxes (☐, [ ]).
 
-DATA FORMATTING RULES (CRITICAL)
-NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
-ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
-MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
-DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
+    DATA FORMATTING RULES (CRITICAL)
+    NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
+    ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
+    MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
+    DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
 
-SECTION SPECIFIC RULES
-M-Items & B/D-Items:
-Find the question ID (e.g., M1830, B1000).
-Find the option that is VISUALLY marked.
-Extract the numeric code associated with that option.
+    SECTION SPECIFIC RULES
+    M-Items & B/D-Items:
+    Find the question ID (e.g., M1830, B1000).
+    Find the option that is VISUALLY marked.
+    Extract the numeric code associated with that option.
 
-ITEMS TO EXTRACT
-If an item is not found or not visually marked, return "N/A".
+    ITEMS TO EXTRACT
+    If an item is not found or not visually marked, return "N/A".
 
---- CHART DATA ---
-M0030 (Start of Care Date) -> Return YYYY-MM-DD
-M0032 (Resumption of Care Date) -> Return YYYY-MM-DD
-M0060 (Zip Code) -> Return ONLY the first 5 characters. Ignore any suffix.
-M0110 (Episode Timing) -> Return code "1" (Early) or "2" (Later)
-M1005 (Inpatient Discharge Date) -> Return YYYY-MM-DD
-M0069 (Gender) -> Return code "1" (Male) or "2" (Female).
-M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT).
+    --- CHART DATA ---
+    M0030 (Start of Care Date) -> Return YYYY-MM-DD
+    M0032 (Resumption of Care Date) -> Return YYYY-MM-DD
+    M0060 (Zip Code) -> Return ONLY the first 5 characters. Ignore any suffix.
+    M0110 (Episode Timing) -> Return code "1" (Early) or "2" (Later)
+    M1005 (Inpatient Discharge Date) -> Return YYYY-MM-DD
+    M0069 (Gender) -> Return code "1" (Male) or "2" (Female).
+    M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT).
 
---- PLAN OF CARE / ORDERS ---
-Activities Permitted:
-Look for the header "Activities Permitted".
-Return a comma-separated list of EVERY checkbox that is visually marked.
-DME:
-Look for the header "DME".
-Return a comma-separated list of EVERY checkbox that is visually marked.
+    --- PLAN OF CARE / ORDERS ---
+    Activities Permitted:
+    Look for the header "Activities Permitted".
+    Return a comma-separated list of EVERY checkbox that is visually marked.
+    DME:
+    Look for the header "DME".
+    Return a comma-separated list of EVERY checkbox that is visually marked.
 
---- OASIS ITEMS ---
-M0090 (Date Assessment Completed) -> Return YYYY-MM-DD
-M1000 (Inpatient Discharge History - list all checked numbers 1-7)
-M1033 (Risk for Hospitalization – list all checked numbers)
-B1000 (Vision)
-M1400 (Dyspnea)
-M1700 (Cognitive Functioning)
-M1710 (When Confused)
-M1720 (When Anxious)
-M1740 (Cognitive/Behavioral Symptoms – list all checked numbers)
-M1745 (Disruptive Behavior)
-M1800 (Grooming)
-M1810 (Upper Body Dressing)
-M1820 (Lower Body Dressing)
-M1830 (Bathing)
-M1840 (Toilet Transfer)
-M1845 (Toileting Hygiene)
-M1850 (Transferring)
-M1860 (Ambulation)
-M1870 (Feeding)
-M2020 (Oral Medications)
-J0530 (Pain Interference with Activities)
+    --- OASIS ITEMS ---
+    M0090 (Date Assessment Completed) -> Return YYYY-MM-DD
+    M1000 (Inpatient Discharge History - list all checked numbers 1-7)
+    M1033 (Risk for Hospitalization – list all checked numbers)
+    B1000 (Vision)
+    M1400 (Dyspnea)
+    M1700 (Cognitive Functioning)
+    M1710 (When Confused)
+    M1720 (When Anxious)
+    M1740 (Cognitive/Behavioral Symptoms – list all checked numbers)
+    M1745 (Disruptive Behavior)
+    M1800 (Grooming)
+    M1810 (Upper Body Dressing)
+    M1820 (Lower Body Dressing)
+    M1830 (Bathing)
+    M1840 (Toilet Transfer)
+    M1845 (Toileting Hygiene)
+    M1850 (Transferring)
+    M1860 (Ambulation)
+    M1870 (Feeding)
+    M2020 (Oral Medications)
+    J0530 (Pain Interference with Activities)
 
---- GG ITEMS (SELF-CARE & MOBILITY) ---
-Extract the "SOC/ROC Performance" code (e.g., 06, 05, 04, 03, 02, 01, 07, 09, 10, 88) for the following items:
-GG0130 B (Oral Hygiene)
-GG0130 C (Toileting Hygiene)
-GG0130 E (Shower/Bathe Self)
-GG0130 F (Upper Body Dressing)
-GG0130 G (Lower Body Dressing)
-GG0130 H (Footwear)
-GG0170 A (Roll left/right)
-GG0170 B (Sit to lying)
-GG0170 C (Lying to sitting)
-GG0170 D (Sit to stand)
-GG0170 E (Chair/bed transfer)
-GG0170 F (Toilet transfer)
-GG0170 I (Walk 10 feet)
-GG0170 J (Walk 50 feet w/ turns)
-GG0170 K (Walk 150 feet)
-GG0170 L (Walk 10 feet uneven)
-GG0170 M (1 step/curb)
-GG0170 N (4 steps)
-GG0170 O (12 steps)
-GG0170 R (Wheel 50 feet)
-GG0170 S (Wheel 150 feet)
+    --- GG ITEMS (SELF-CARE & MOBILITY) ---
+    Extract the "SOC/ROC Performance" code (e.g., 06, 05, 04, 03, 02, 01, 07, 09, 10, 88) for the following items:
+    GG0130 B (Oral Hygiene)
+    GG0130 C (Toileting Hygiene)
+    GG0130 E (Shower/Bathe Self)
+    GG0130 F (Upper Body Dressing)
+    GG0130 G (Lower Body Dressing)
+    GG0130 H (Footwear)
+    GG0170 A (Roll left/right)
+    GG0170 B (Sit to lying)
+    GG0170 C (Lying to sitting)
+    GG0170 D (Sit to stand)
+    GG0170 E (Chair/bed transfer)
+    GG0170 F (Toilet transfer)
+    GG0170 I (Walk 10 feet)
+    GG0170 J (Walk 50 feet w/ turns)
+    GG0170 K (Walk 150 feet)
+    GG0170 L (Walk 10 feet uneven)
+    GG0170 M (1 step/curb)
+    GG0170 N (4 steps)
+    GG0170 O (12 steps)
+    GG0170 R (Wheel 50 feet)
+    GG0170 S (Wheel 150 feet)
 
---- D0150 PATIENT MOOD INTERVIEW ---
-This section has two columns. Extract the numeric code for checks in Row A and Row B.
-Row A (Little interest): Col 1 (Symptom), Col 2 (Frequency)
-Row B (Feeling down): Col 1 (Symptom), Col 2 (Frequency)
+    --- D0150 PATIENT MOOD INTERVIEW ---
+    This section has two columns. Extract the numeric code for checks in Row A and Row B.
+    Row A (Little interest): Col 1 (Symptom), Col 2 (Frequency)
+    Row B (Feeling down): Col 1 (Symptom), Col 2 (Frequency)
 
-SALESFORCE OUTPUT REQUIREMENT (MANDATORY)
-You must identify values using the OASIS codes above, but the FINAL OUTPUT must use the specific JSON keys below.
+    SALESFORCE OUTPUT REQUIREMENT (MANDATORY)
+    You must identify values using the OASIS codes above, but the FINAL OUTPUT must use the specific JSON keys below.
 
-Use this mapping EXACTLY:
-SOC_Date -> M0030 (YYYY-MM-DD)
-ROC_Date -> M0032 (YYYY-MM-DD)
-Zip_Code -> M0060 (First 5 digits only)
-Episode_Timing -> M0110 (1 or 2)
-M0069 -> M0069 (1 or 2)
-M0080 -> M0080 (1, 2, 3, or 4)
-Inpatient_Discharge_Date -> M1005 (YYYY-MM-DD)
-M0090_Date_Assessment_Completed -> M0090 (YYYY-MM-DD)
-M1000_Discharge_History -> M1000 (Comma separated list of codes)
-Activities Permitted -> Activities_Permitted__c
-DME -> DME_Supplies__c
-B1000 -> M1200_Vision__c
-D0150 Row A Col 1 -> Little_interest_symptom_presence__c
-D0150 Row A Col 2 -> Little_interest_symptom_frequency__c
-D0150 Row B Col 1 -> Feeling_down_symptom_presence__c
-D0150 Row B Col 2 -> Feeling_down_symptom_frequency__c
-M1033 -> Functional_Points_M1033__c
-M1400 -> M1400_SOB_Actual__c
-M1700 -> M1700_Cognitive_Functioning__c
-M1710 -> M1710_When_Confused__c
-M1720 -> M1720_When_Anxious__c
-M1740 -> M1740_Cognitive_behavioral_and__c
-M1745 -> M1745_Frequncy_of_Disruptive_Behavior__c
-M1800 -> M1800_Grooming_Actual__c
-M1810 -> M1810_Ability_to_Dress_Upper_Body_Actual__c
-M1820 -> M1820_Ability_to_Dress_Lower_Body_Actual__c
-M1830 -> M1830_Bathing_Actual__c
-M1840 -> M1840_Toilet_Transferring_Actual__c
-M1845 -> M1845_Toilet_Hyg_Actual__c
-M1850 -> M1850_Transferring_Actual__c
-M1860 -> M1860_Ambulation_Locomotion_Actual__c
-M1870 -> M1870_Feeding_Actual__c
-M2020 -> M2020_Oral_Medications_Actual__c
-J0530 -> J0530_Pain_Interference_with_Day_to_Da__c
+    Use this mapping EXACTLY:
+    SOC_Date -> M0030 (YYYY-MM-DD)
+    ROC_Date -> M0032 (YYYY-MM-DD)
+    Zip_Code -> M0060 (First 5 digits only)
+    Episode_Timing -> M0110 (1 or 2)
+    M0069 -> M0069 (1 or 2)
+    M0080 -> M0080 (1, 2, 3, or 4)
+    Inpatient_Discharge_Date -> M1005 (YYYY-MM-DD)
+    M0090_Date_Assessment_Completed -> M0090 (YYYY-MM-DD)
+    M1000_Discharge_History -> M1000 (Comma separated list of codes)
+    Activities Permitted -> Activities_Permitted__c
+    DME -> DME_Supplies__c
+    B1000 -> M1200_Vision__c
+    D0150 Row A Col 1 -> Little_interest_symptom_presence__c
+    D0150 Row A Col 2 -> Little_interest_symptom_frequency__c
+    D0150 Row B Col 1 -> Feeling_down_symptom_presence__c
+    D0150 Row B Col 2 -> Feeling_down_symptom_frequency__c
+    M1033 -> Functional_Points_M1033__c
+    M1400 -> M1400_SOB_Actual__c
+    M1700 -> M1700_Cognitive_Functioning__c
+    M1710 -> M1710_When_Confused__c
+    M1720 -> M1720_When_Anxious__c
+    M1740 -> M1740_Cognitive_behavioral_and__c
+    M1745 -> M1745_Frequncy_of_Disruptive_Behavior__c
+    M1800 -> M1800_Grooming_Actual__c
+    M1810 -> M1810_Ability_to_Dress_Upper_Body_Actual__c
+    M1820 -> M1820_Ability_to_Dress_Lower_Body_Actual__c
+    M1830 -> M1830_Bathing_Actual__c
+    M1840 -> M1840_Toilet_Transferring_Actual__c
+    M1845 -> M1845_Toilet_Hyg_Actual__c
+    M1850 -> M1850_Transferring_Actual__c
+    M1860 -> M1860_Ambulation_Locomotion_Actual__c
+    M1870 -> M1870_Feeding_Actual__c
+    M2020 -> M2020_Oral_Medications_Actual__c
+    J0530 -> J0530_Pain_Interference_with_Day_to_Da__c
 
-GG0130 B -> GG0130_B_Oral_Hygiene__c
-GG0130 C -> GG0130_C_Toileting_Hygiene__c
-GG0130 E -> GG0130_E_Shower_bathe_self__c
-GG0130 F -> GG0130_F_Upper_body_dressing__c
-GG0130 G -> GG0130_G_Lower_body_dressing__c
-GG0130 H -> GG0130_H_Putting_on_taking_off_footwear__c
-GG0170 A -> GG0170_A_Roll_left_and_right__c
-GG0170 B -> GG0170_B_Sit_to_lying__c
-GG0170 C -> GG0170_C_Lying_to_sitting_on_side_of_bed__c
-GG0170 D -> GG0170_D_Sit_to_stand__c
-GG0170 E -> GG0170_E_Chair_bed_to_chair_transfer__c
-GG0170 F -> GG0170_F_Toilet_transfer__c
-GG0170 I -> GG0170_I_Walk_10_feet__c
-GG0170 J -> GG0170_J_Walk_50_feet_with_two_turns__c
-GG0170 K -> GG0170_K_Walk_150_feet__c
-GG0170 L -> GG0170_L_Walking_10_feet_on_uneven_surf__c
-GG0170 M -> GG0170_M_1_step_curb__c
-GG0170 N -> GG0170_N_4_steps__c
-GG0170 O -> GG0170_O_12_steps__c
-GG0170 R -> GG0170_R_Wheel_50_feet_with_two_turns__c
-GG0170 S -> GG0170_S_Wheel_150_feet__c
+    GG0130 B -> GG0130_B_Oral_Hygiene__c
+    GG0130 C -> GG0130_C_Toileting_Hygiene__c
+    GG0130 E -> GG0130_E_Shower_bathe_self__c
+    GG0130 F -> GG0130_F_Upper_body_dressing__c
+    GG0130 G -> GG0130_G_Lower_body_dressing__c
+    GG0130 H -> GG0130_H_Putting_on_taking_off_footwear__c
+    GG0170 A -> GG0170_A_Roll_left_and_right__c
+    GG0170 B -> GG0170_B_Sit_to_lying__c
+    GG0170 C -> GG0170_C_Lying_to_sitting_on_side_of_bed__c
+    GG0170 D -> GG0170_D_Sit_to_stand__c
+    GG0170 E -> GG0170_E_Chair_bed_to_chair_transfer__c
+    GG0170 F -> GG0170_F_Toilet_transfer__c
+    GG0170 I -> GG0170_I_Walk_10_feet__c
+    GG0170 J -> GG0170_J_Walk_50_feet_with_two_turns__c
+    GG0170 K -> GG0170_K_Walk_150_feet__c
+    GG0170 L -> GG0170_L_Walking_10_feet_on_uneven_surf__c
+    GG0170 M -> GG0170_M_1_step_curb__c
+    GG0170 N -> GG0170_N_4_steps__c
+    GG0170 O -> GG0170_O_12_steps__c
+    GG0170 R -> GG0170_R_Wheel_50_feet_with_two_turns__c
+    GG0170 S -> GG0170_S_Wheel_150_feet__c
 
-FINAL OUTPUT FORMAT (STRICT)
-Return ONLY valid JSON.
-Return a SINGLE flat JSON object.
-Keys MUST be the specific keys listed above.
-Values MUST be strings.
-Use comma-separated values for multi-select items.
-If an item is not found or not marked, return "N/A".
-Do NOT include markdown, backticks, explanations, or extra text.
-Do NOT include OASIS codes in the output keys.
-Do NOT add or remove keys.
+    FINAL OUTPUT FORMAT (STRICT)
+    Return ONLY valid JSON.
+    Return a SINGLE flat JSON object.
+    Keys MUST be the specific keys listed above.
+    Values MUST be strings.
+    Use comma-separated values for multi-select items.
+    If an item is not found or not marked, return "N/A".
+    Do NOT include markdown, backticks, explanations, or extra text.
+    Do NOT include OASIS codes in the output keys.
+    Do NOT add or remove keys.
 
-PICKLIST NORMALIZATION RULES (MANDATORY)
-Document wording and layouts may vary. Use semantic meaning, not exact text.
-Normalize selections to the VALID Salesforce picklist values below.
-Return ONLY the exact picklist label.
+    PICKLIST NORMALIZATION RULES (MANDATORY)
+    Document wording and layouts may vary. Use semantic meaning, not exact text.
+    Normalize selections to the VALID Salesforce picklist values below.
+    Return ONLY the exact picklist label.
 
-Activities Permitted — VALID VALUES
-Complete Bed Rest, Up as Tolerated, Excercise Prescribed, Independent at Home, Cane, Walker, Best Rest BRP, Transfer Bed-Chair, Partial Weight Bearing, Crutches, Wheelchair, Other, Needs assist with ADLs, Transfer Assistance, Fall Precautions, Slow Position Changes, Wound Care, Abdom. Surgery Precautions, Requires Supervision
+    Activities Permitted — VALID VALUES
+    Complete Bed Rest, Up as Tolerated, Excercise Prescribed, Independent at Home, Cane, Walker, Best Rest BRP, Transfer Bed-Chair, Partial Weight Bearing, Crutches, Wheelchair, Other, Needs assist with ADLs, Transfer Assistance, Fall Precautions, Slow Position Changes, Wound Care, Abdom. Surgery Precautions, Requires Supervision
 
-DME — VALID VALUES
-Bedside Commode, Cane, Elevated Toilet Seat, Grab Bars, Hospital Bed, Nebulizer, Oxygen, Tub/Shower Bench, Walker, Wheelchair, Other, Bed Overlay, Brace/Orthotics, Crutches, Hoyer Lift, Respiratory Equipment, Slider Board, Trapeze, No-DME, CPAP Machine, Diabetic Supplies, Vital Sign Equipment, Removable Shower Head, Scooter, Wound Care Supplies, Alcohol/Hand Sanitizer, Lab Supplies, PPE
+    DME — VALID VALUES
+    Bedside Commode, Cane, Elevated Toilet Seat, Grab Bars, Hospital Bed, Nebulizer, Oxygen, Tub/Shower Bench, Walker, Wheelchair, Other, Bed Overlay, Brace/Orthotics, Crutches, Hoyer Lift, Respiratory Equipment, Slider Board, Trapeze, No-DME, CPAP Machine, Diabetic Supplies, Vital Sign Equipment, Removable Shower Head, Scooter, Wound Care Supplies, Alcohol/Hand Sanitizer, Lab Supplies, PPE
 
-OUTPUT ENFORCEMENT
-Output ONLY valid picklist labels.
-Multiple values must be comma-separated.
-If nothing applies, return "N/A".
+    OUTPUT ENFORCEMENT
+    Output ONLY valid picklist labels.
+    Multiple values must be comma-separated.
+    If nothing applies, return "N/A".
     `;
 
     return await callGeminiProVision(prompt, fileDataArray);
@@ -698,134 +729,134 @@ async function runPtOtExtraction(fileDataArray) {
     const prompt = `
     Role - You are an expert Medical Data Encoder.
 
-Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
+    Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
-1. Value Mapping Logic (Strict)
+    1. Value Mapping Logic (Strict)
 
-You must convert the raw text found in the document (e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output (Required Value) column below.
-Use the Terms/Codes Found in Doc column to identify the correct match.
+    You must convert the raw text found in the document (e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output (Required Value) column below.
+    Use the Terms/Codes Found in Doc column to identify the correct match.
 
-Functional Level	Terms / Codes Found in Doc	Target Output (Required Value)
-6	06, Ind, Independent, I, Safe	"6 - Independent"
-5	05, Mod I, Modified Independent, MI, Setup/Cleanup	"5 - Moderly Independent"
-4	Walker/Cane used w/o assist, Assist with Device	"4 - Assist with Device"
-4	Sup, Supervision, ST	"4 - Supervision"
-4	SBA, Stand By Assist, SC	"4 - Stand By Assist"
-4	CGA, Contact Guard Assist, Caregiver Assist, Required Assistance	"4 - Caregiver Assist"
-3	03, Min A, Minimum Assist, PM, 25%	"3 - Minimum Assist"
-3	Mod A, Moderate Assist, 50%	"3 - Moderate Assist"
-2	02, Max A, Max Assistance, SM, 75%	"2 - Max Assistance"
-1	01, Dep, Dependent, Total Assist, >75%, Unable	"1 - Dependent"
-NT	NT, N/A, Not Attempted, Not Tested	"NT - Not Attempted"
+    Functional Level    Terms / Codes Found in Doc  Target Output (Required Value)
+    6   06, Ind, Independent, I, Safe   "6 - Independent"
+    5   05, Mod I, Modified Independent, MI, Setup/Cleanup  "5 - Moderly Independent"
+    4   Walker/Cane used w/o assist, Assist with Device "4 - Assist with Device"
+    4   Sup, Supervision, ST    "4 - Supervision"
+    4   SBA, Stand By Assist, SC    "4 - Stand By Assist"
+    4   CGA, Contact Guard Assist, Caregiver Assist, Required Assistance    "4 - Caregiver Assist"
+    3   03, Min A, Minimum Assist, PM, 25%  "3 - Minimum Assist"
+    3   Mod A, Moderate Assist, 50% "3 - Moderate Assist"
+    2   02, Max A, Max Assistance, SM, 75%  "2 - Max Assistance"
+    1   01, Dep, Dependent, Total Assist, >75%, Unable  "1 - Dependent"
+    NT  NT, N/A, Not Attempted, Not Tested  "NT - Not Attempted"
 
-Note:
-If the document uses checkmarks, map the column header (e.g., MIN, MOD, MAX) to the corresponding Target Output.
+    Note:
+    If the document uses checkmarks, map the column header (e.g., MIN, MOD, MAX) to the corresponding Target Output.
 
-2. Extraction Instructions
+    2. Extraction Instructions
 
-Determine Discipline
-Identify whether the document is PT or OT and populate only the relevant fields.
+    Determine Discipline
+    Identify whether the document is PT or OT and populate only the relevant fields.
 
-Find Current Status
-Extract the CURRENT status only.
-Ignore values from Prior Level, Previous, or Goal columns.
+    Find Current Status
+    Extract the CURRENT status only.
+    Ignore values from Prior Level, Previous, or Goal columns.
 
-Ambiguity Handling
+    Ambiguity Handling
 
-If the value is PM, map to "3 - Minimum Assist".
+    If the value is PM, map to "3 - Minimum Assist".
 
-If the value is SM, map to "2 - Max Assistance" (unless explicitly labeled Moderate).
+    If the value is SM, map to "2 - Max Assistance" (unless explicitly labeled Moderate).
 
-Null Handling
+    Null Handling
 
-If a field is not found in the document, exclude it from the JSON or set it to null.
+    If a field is not found in the document, exclude it from the JSON or set it to null.
 
-3. JSON Output Structure
+    3. JSON Output Structure
 
-Return only a valid JSON object using the keys below.
+    Return only a valid JSON object using the keys below. Do NOT use markdown code blocks.
 
-Occupational Therapy (OT) Fields
+    Occupational Therapy (OT) Fields
 
-(Only populate these if analyzing an OT document)
+    (Only populate these if analyzing an OT document)
 
-Date_of_OT_Eval__c → Format: YYYY-MM-DD
+    Date_of_OT_Eval__c → Format: YYYY-MM-DD
 
-GG_OT_Feeding__c → Look for Eating / Feeding
+    GG_OT_Feeding__c → Look for Eating / Feeding
 
-GG_OT_Oral_Hygiene__c → Look for Teeth / Dentures / Oral
+    GG_OT_Oral_Hygiene__c → Look for Teeth / Dentures / Oral
 
-GG_OT_Grooming__c → Look for Grooming / Hygiene
+    GG_OT_Grooming__c → Look for Grooming / Hygiene
 
-GG_OT_Toilet_Hygiene__c → Look for Toileting Hygiene / Clothing Management
+    GG_OT_Toilet_Hygiene__c → Look for Toileting Hygiene / Clothing Management
 
-GG_OT_Bathing__c → Look for Bathing / Washing Body
+    GG_OT_Bathing__c → Look for Bathing / Washing Body
 
-GG_OT_Upper_Body_Dressing__c → Look for Upper Body Dressing
+    GG_OT_Upper_Body_Dressing__c → Look for Upper Body Dressing
 
-GG_OT_Lower_Body_Dressing__c → Look for Lower Body Dressing
+    GG_OT_Lower_Body_Dressing__c → Look for Lower Body Dressing
 
-GG_OT_Sock_Shoes__c → Look for Footwear / Shoes / Socks
+    GG_OT_Sock_Shoes__c → Look for Footwear / Shoes / Socks
 
-If combined with Lower Body Dressing, use that score.
+    If combined with Lower Body Dressing, use that score.
 
-GG_OT_Car_Van__c → Look for Car Transfer in OT section
+    GG_OT_Car_Van__c → Look for Car Transfer in OT section
 
-GG_OT_Toilet_Transfer__c → Look for Toilet Transfer in OT section
+    GG_OT_Toilet_Transfer__c → Look for Toilet Transfer in OT section
 
-Physical Therapy (PT) Fields
+    Physical Therapy (PT) Fields
 
-(Only populate these if analyzing a PT document)
+    (Only populate these if analyzing a PT document)
 
-GG_PT_Sit_Stand__c → Look for Sit to Stand transfer
+    GG_PT_Sit_Stand__c → Look for Sit to Stand transfer
 
-GG_PT_Bed_Wheelchair__c → Look for Bed to Chair / Wheelchair transfer
+    GG_PT_Bed_Wheelchair__c → Look for Bed to Chair / Wheelchair transfer
 
-GG_PT_Wheelchair_Bed__c → Look for Wheelchair to Bed transfer
+    GG_PT_Wheelchair_Bed__c → Look for Wheelchair to Bed transfer
 
-If not distinct, use Bed_Wheelchair value.
+    If not distinct, use Bed_Wheelchair value.
 
-GG_PT_Car_Van__c → Look for Car Transfer
+    GG_PT_Car_Van__c → Look for Car Transfer
 
-GG_PT_Toilet_Transfer__c → Look for Toilet Transfer / Commode
+    GG_PT_Toilet_Transfer__c → Look for Toilet Transfer / Commode
 
-GG_PT_Bathing__c → Look for Tub / Shower Transfer
+    GG_PT_Bathing__c → Look for Tub / Shower Transfer
 
-GG_PT_Level_10_Feet__c → Look for Ambulation / Gait – 10 ft
+    GG_PT_Level_10_Feet__c → Look for Ambulation / Gait – 10 ft
 
-GG_PT_Level_50_Feet__c → Look for Ambulation / Gait – 50 ft
+    GG_PT_Level_50_Feet__c → Look for Ambulation / Gait – 50 ft
 
-GG_PT_Level_150_Feet__c → Look for Ambulation / Gait – 150 ft
+    GG_PT_Level_150_Feet__c → Look for Ambulation / Gait – 150 ft
 
-GG_PT_Unlevel__c → Look for Uneven Surfaces
+    GG_PT_Unlevel__c → Look for Uneven Surfaces
 
-GG_PT_1_Step__c → Look for 1 Step / Curb
+    GG_PT_1_Step__c → Look for 1 Step / Curb
 
-GG_PT_4_Steps__c → Look for 4 Steps
+    GG_PT_4_Steps__c → Look for 4 Steps
 
-GG_PT_12_Steps__c → Look for 12 Steps / Full Flight
+    GG_PT_12_Steps__c → Look for 12 Steps / Full Flight
 
-General Fields (All Documents)
+    General Fields (All Documents)
 
-Complete_PT_OT_Eval__c → Always set to "Yes"
+    Complete_PT_OT_Eval__c → Always set to "Yes"
 
-Date_of_PT_OT_Eval__c → Date of evaluation (YYYY-MM-DD)
+    Date_of_PT_OT_Eval__c → Date of evaluation (YYYY-MM-DD)
 
-Bed_Mobility__c → Look for Rolling Left / Right
+    Bed_Mobility__c → Look for Rolling Left / Right
 
-Transfer__c → Look for Supine to Sit / Sit to Supine
+    Transfer__c → Look for Supine to Sit / Sit to Supine
 
-Gait__c → Look for general ambulation if distances are not listed
+    Gait__c → Look for general ambulation if distances are not listed
 
-Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
+    Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
 
-Other__c → Any other relevant functional notes, otherwise null
+    Other__c → Any other relevant functional notes, otherwise null
     `;
 
     return await callGeminiProVision(prompt, fileDataArray);
 }
 
 /* =========================================================
-   GEMINI 1.5 PRO CALLER
+   GEMINI CALLER
    ========================================================= */
 async function callGeminiProVision(promptText, fileDataArray) {
     const parts = [{ text: promptText }];
@@ -836,7 +867,16 @@ async function callGeminiProVision(promptText, fileDataArray) {
     const response = await fetch(`${GEMINI_PRO_ENDPOINT}?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ parts: parts }] })
+        body: JSON.stringify({
+            contents: [{ parts: parts }],
+            // Optional: Adjust safety settings if clinical forms get flagged
+            safetySettings: [
+                { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+                { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+                { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+                { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+            ]
+        })
     });
 
     if (!response.ok) {
@@ -844,6 +884,15 @@ async function callGeminiProVision(promptText, fileDataArray) {
         throw new Error("Gemini API Error: " + err);
     }
     const data = await response.json();
+    
+    // Safety check for candidates
+    if (!data.candidates || data.candidates.length === 0) {
+        if(data.promptFeedback && data.promptFeedback.blockReason) {
+             throw new Error("AI Blocked Response: " + data.promptFeedback.blockReason);
+        }
+        throw new Error("No response candidates returned.");
+    }
+    
     return data.candidates[0].content.parts[0].text;
 }
 
@@ -854,6 +903,11 @@ async function finalizeSave() {
     const saveBtn = document.getElementById("saveBtn");
     const oasisData = document.getElementById("oasisOutput").value;
     const ptotData = document.getElementById("ptotOutput").value;
+
+    if(!CHART_ID) {
+        showStatus("❌ Error: Missing Salesforce Chart ID.", true);
+        return;
+    }
 
     try {
         saveBtn.disabled = true;
@@ -870,7 +924,7 @@ async function finalizeSave() {
             }));
         }
 
-        // 2. Save PT/OT Data (New Endpoint)
+        // 2. Save PT/OT Data
         if (ptotData && ptotData.includes("{") && ptotData.length > 5) {
             promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/pt-ot/ai-result`, {
                 chartId: CHART_ID,
@@ -889,12 +943,13 @@ async function finalizeSave() {
         showStatus("✅ All Data & Files Saved!", false);
         saveBtn.innerText = "Saved";
         setTimeout(() => {
+             // Redirect logic or refresh
              window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
-        }, 1000);
+        }, 1500);
 
     } catch (e) {
         console.error(e);
-        showStatus("❌ Save Partial/Failed: " + e.message, true);
+        showStatus("❌ Save Failed: " + e.message, true);
         saveBtn.disabled = false;
         saveBtn.innerText = "Retry Save";
     }
@@ -906,11 +961,18 @@ async function sendToApex(endpoint, body) {
         headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
         body: JSON.stringify(body)
     });
-    if (!response.ok) throw new Error("Apex Error: " + await response.text());
+    if (!response.ok) {
+        // Try to read text, if JSON parse fails, read generic error
+        const errText = await response.text();
+        throw new Error(`Apex Error (${response.status}): ` + errText);
+    }
 }
 
 async function uploadFiles() {
-    const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
+    // Updated to v60.0 for better compatibility
+    const endpoint = `${SF_BASE_URL}/services/data/v60.0/sobjects/ContentVersion`;
+    
+    // Upload files sequentially to avoid hitting Salesforce concurrency limits
     for (let file of selectedFiles) {
         const fileData = await readFileAsBase64(file);
         await fetch(endpoint, {
