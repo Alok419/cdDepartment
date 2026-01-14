@@ -1,924 +1,943 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>AI Clinical Analyzer (OASIS + PT/OT)</title>
+    <title>AI Clinical Analyzer (OASIS & PT/OT)</title>
     <style>
-        /* --- GLOBAL LAYOUT (Dark Theme) --- */
+        /* --- GLOBAL THEME (Professional Dark Mode) --- */
+        :root {
+            --bg-dark: #0b1f2a;
+            --card-bg: #081821;
+            --border: #1f3a4d;
+            --text-main: #ffffff;
+            --text-muted: #8daac2;
+            --accent-blue: #4fa3ff;
+            --accent-hover: #7abaff;
+            --accent-green: #4ade80;
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
         body {
             margin: 0;
-            padding: 0;
-            font-family: "Segoe UI", Arial, sans-serif;
-            background: #0b1f2a;
+            padding: 20px;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
-            color: #ffffff;
         }
 
+        .main-wrapper {
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* --- CARD DESIGN --- */
         .card {
-            width: 700px;
-            /* Widened for better table viewing */
-            background: #081821;
+            background: var(--card-bg);
             border-radius: 14px;
-            padding: 28px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, .45);
-            margin: 20px 0;
-            border: 1px solid #1f3a4d;
+            padding: 30px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+            border: 1px solid var(--border);
+            margin-bottom: 30px;
         }
 
-        h2 {
-            margin-top: 0;
-            margin-bottom: 8px;
+        h2.main-title {
+            margin: 0 0 10px 0;
             font-weight: 600;
+            font-size: 24px;
             text-align: center;
             color: #e0e0e0;
+            letter-spacing: 0.5px;
         }
 
-        p {
+        p.subtitle {
             font-size: 14px;
-            opacity: 0.85;
+            color: var(--text-muted);
             text-align: center;
-            margin-bottom: 20px;
-            color: #8daac2;
+            margin: 0 0 30px 0;
         }
 
-        /* --- UPLOAD STYLES --- */
-        .upload-card {
-            background: linear-gradient(180deg, #0c2230, #081821);
-            border: 1px solid #1f3a4d;
-            border-radius: 14px;
-            padding: 22px;
-        }
-
-        .upload-header {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 18px;
-        }
-
-        .upload-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 10px;
-            background: rgba(79, 163, 255, 0.15);
-            color: #7abaff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-        }
-
-        .upload-title {
-            font-size: 15px;
-            font-weight: 600;
-            color: #e4f1ff;
-        }
-
-        .upload-subtitle {
-            font-size: 12px;
-            color: #9bb9d4;
-        }
-
+        /* --- UPLOAD SECTION --- */
         .upload-zone {
             border: 2px dashed #355a74;
             border-radius: 12px;
-            padding: 26px;
+            padding: 40px;
             text-align: center;
             background: #06141c;
             cursor: pointer;
-            transition: all 0.25s ease;
-            margin-bottom: 16px;
+            transition: all 0.2s ease;
+            margin-bottom: 20px;
         }
 
         .upload-zone:hover {
-            border-color: #7abaff;
+            border-color: var(--accent-blue);
             background: #081d2a;
         }
 
-        .upload-zone-text {
-            font-size: 13px;
+        .upload-icon {
+            font-size: 40px;
+            color: var(--accent-blue);
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            font-size: 16px;
             font-weight: 600;
             color: #d6eaff;
         }
 
-        .upload-zone-hint {
-            font-size: 11px;
-            color: #8fbce6;
-            margin-top: 4px;
+        .upload-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 5px;
         }
 
         /* --- FILE LIST --- */
         .file-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-bottom: 18px;
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
         .file-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #ffffff;
-            border-radius: 12px;
-            padding: 10px 14px;
-            border: 1px solid #e6e6e6;
-        }
-
-        .file-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 0;
-        }
-
-        .file-type-icon {
-            width: 36px;
-            height: 36px;
+            background: #fff;
             border-radius: 8px;
-            background: #eef5ff;
-            color: #4fa3ff;
+            padding: 10px 15px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            font-size: 18px;
-        }
-
-        .file-meta {
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
+            color: #333;
         }
 
         .file-name {
-            font-size: 13px;
             font-weight: 600;
-            color: #1e1e1e;
-            white-space: nowrap;
+            font-size: 14px;
+            max-width: 300px;
             overflow: hidden;
             text-overflow: ellipsis;
-            max-width: 260px;
-        }
-
-        .file-size {
-            font-size: 11px;
-            color: #6b6b6b;
+            white-space: nowrap;
         }
 
         .remove-btn {
             background: transparent;
             border: none;
-            color: #9b9b9b;
+            color: #999;
             cursor: pointer;
-            padding: 6px;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            font-size: 16px;
         }
+        .remove-btn:hover { color: var(--error); }
 
-        .remove-btn:hover {
-            background: #ffecec;
-            color: #d64545;
-        }
-
-        /* --- BUTTONS --- */
+        /* --- ACTIONS & BUTTONS --- */
         .analyze-btn {
             width: 100%;
-            padding: 13px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #4fa3ff, #7abaff);
+            padding: 14px;
+            background: linear-gradient(135deg, #0176d3 0%, #4fa3ff 100%);
             border: none;
-            font-size: 14px;
+            border-radius: 8px;
+            color: white;
             font-weight: 600;
-            color: #04121a;
+            font-size: 16px;
             cursor: pointer;
-            transition: all 0.25s ease;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        .analyze-btn:hover {
+        .analyze-btn:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 12px 30px rgba(79, 163, 255, 0.35);
+            box-shadow: 0 6px 15px rgba(1, 118, 211, 0.4);
         }
 
         .analyze-btn:disabled {
-            background: #6b6b6b;
-            color: #d1d1d1;
-            transform: none;
-            box-shadow: none;
+            background: #4b5563;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         .save-btn {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            font-weight: 700;
+            font-size: 16px;
             border: none;
             border-radius: 8px;
-            font-weight: bold;
-            font-size: 15px;
             cursor: pointer;
-            background: #4cff9f;
-            color: #00522e;
-            margin-top: 15px;
-        }
-
-        .save-btn:hover {
-            background: #7dfcbd;
-        }
-
-        .save-btn:disabled {
-            background: #6b6b6b;
-            color: #d1d1d1;
-            cursor: not-allowed;
-        }
-
-        /* --- PREVIEW TABLE --- */
-        .preview-container {
             margin-top: 20px;
-            background: #0c2230;
-            border: 1px solid #1f3a4d;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+        .save-btn:hover:not(:disabled) { transform: translateY(-1px); }
+        .save-btn:disabled { background: #4b5563; box-shadow: none; cursor: not-allowed; }
+
+        /* --- TABS --- */
+        .tabs-header {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 20px;
+            margin-top: 20px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-blue);
+            border-bottom-color: var(--accent-blue);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- RESULTS --- */
+        .result-box {
+            width: 100%;
+            background: #050e13;
+            color: #a6e22e; /* Monokai Green */
+            border: 1px solid var(--border);
             border-radius: 8px;
             padding: 15px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .preview-table {
-            width: 100%;
-            border-collapse: collapse;
+            font-family: "Consolas", "Monaco", monospace;
             font-size: 13px;
-        }
-
-        .preview-table th {
-            text-align: left;
-            color: #7abaff;
-            border-bottom: 1px solid #1f3a4d;
-            padding: 8px;
-        }
-
-        .preview-table td {
-            padding: 8px;
-            border-bottom: 1px solid #142d3d;
-            color: #e0e0e0;
-        }
-
-        .preview-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .category-header {
-            background-color: #06141c;
-            font-weight: bold;
-            color: #fff;
-        }
-
-        /* --- RESULTS & STATUS --- */
-        .status {
-            margin-top: 16px;
-            font-size: 14px;
-            min-height: 20px;
-            text-align: center;
-        }
-
-        .success {
-            color: #4cff9f;
-        }
-
-        .error {
-            color: #ff7a7a;
-        }
-
-        #resultArea {
-            display: none;
-            margin-top: 20px;
-            border-top: 1px solid #1f3a4d;
-            padding-top: 15px;
-        }
-
-        textarea {
-            width: 100%;
-            height: 150px;
-            background: #050e13;
-            color: #a6e22e;
-            border: 1px solid #1f3a4d;
-            border-radius: 6px;
-            padding: 10px;
-            font-family: "Consolas", "Courier New", monospace;
-            font-size: 12px;
             resize: vertical;
+            min-height: 250px;
             box-sizing: border-box;
-            margin-top: 10px;
+            outline: none;
         }
 
-        .toggle-json {
-            color: #4fa3ff;
+        /* --- PROGRESS BAR --- */
+        #progressWrapper {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-track {
+            background: #102a3a;
+            border-radius: 10px;
+            height: 8px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4fa3ff, #00d2ff);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .progress-text {
             font-size: 12px;
-            cursor: pointer;
-            text-decoration: underline;
-            display: inline-block;
-            margin-top: 10px;
+            color: var(--accent-blue);
+            display: flex;
+            justify-content: space-between;
         }
 
-        .upload-disabled {
-            pointer-events: none;
-            opacity: 0.45;
+        /* --- UTILS --- */
+        .status { text-align: center; margin-top: 15px; font-size: 14px; min-height: 20px; }
+        .success { color: var(--success); }
+        .error { color: var(--error); }
+        .hidden { display: none; }
+        .disabled-ui { opacity: 0.5; pointer-events: none; }
+
+        #loadingMessage {
+            text-align: center;
+            color: var(--accent-blue);
+            margin-bottom: 20px;
+            font-style: italic;
         }
+
     </style>
 </head>
-
 <body>
-    <div class="card">
-        <h2>AI Clinical Analyzer</h2>
-        <p>Upload OASIS, PT, and OT documents to extract data</p>
 
-        <div id="loadingMessage" style="text-align:center; color:#4fa3ff; margin-bottom:15px;">
-            Connecting to Salesforce...
-        </div>
+    <div class="main-wrapper">
+        <div class="card" id="mainCard" style="display:none;">
+            <h2 class="main-title">AI Clinical Analyzer</h2>
+            <p class="subtitle">Unified Processing: OASIS Extraction & PT/OT Evaluations</p>
 
-        <div id="mainControls" class="upload-card" style="display:none;">
-            <div class="upload-header">
-                <div class="upload-icon">📄</div>
-                <div>
-                    <div class="upload-title">Upload Documents</div>
-                    <div class="upload-subtitle">
-                        Supports OASIS-E1, PT Eval, and OT Eval (PDF/Images)
-                    </div>
+            <div id="inputSection">
+                <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📂</div>
+                    <div class="upload-text">Upload Patient Documents</div>
+                    <div class="upload-hint">OASIS PDFs, PT/OT Evals, Progress Notes</div>
+                    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple onchange="handleFileSelect(this)" hidden>
+                </div>
+
+                <div id="fileSectionHeader" class="hidden" style="margin-bottom:10px; font-size:14px; color:#ccc;">
+                    Selected Files (<span id="fileCount">0</span>)
+                </div>
+                <div id="fileListContainer" class="file-list"></div>
+
+                <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">Analyze Documents</button>
+            </div>
+
+            <div id="progressWrapper">
+                <div class="progress-text">
+                    <span id="progressStatus">Initializing...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="progressBar"></div>
                 </div>
             </div>
 
-            <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-                <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple
-                    onchange="handleFileSelect(this)" hidden>
-                <div class="upload-zone-icon">⬆️</div>
-                <div class="upload-zone-text">
-                    Click to upload or drag files here
+            <div id="resultSection" class="hidden">
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="switchTab('oasis')">OASIS Data</button>
+                    <button class="tab-btn" onclick="switchTab('ptot')">PT/OT Evaluation</button>
                 </div>
-                <div class="upload-zone-hint">
-                    Upload multiple files at once for combined analysis
+
+                <div id="tab-oasis" class="tab-content active">
+                    <p style="font-size:12px; color:#888;">Extracted OASIS M-Items & GG Codes (JSON)</p>
+                    <textarea id="oasisOutput" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
                 </div>
+
+                <div id="tab-ptot" class="tab-content">
+                    <p style="font-size:12px; color:#888;">Extracted PT/OT Functional Data (JSON)</p>
+                    <textarea id="ptotOutput" class="result-box" readonly placeholder="Waiting for analysis..."></textarea>
+                </div>
+
+                <button id="saveBtn" class="save-btn" onclick="finalizeSave()">Save All Data & Files</button>
             </div>
 
-            <div id="fileSectionHeader"
-                style="display:none; font-size:13px; font-weight:600; color:#cfe7ff; margin-bottom:10px;">
-                Uploaded Files (<span id="fileCount">0</span>)
-            </div>
-            <div id="fileListContainer" class="file-list"></div>
-
-            <button id="analyzeBtn" class="analyze-btn" onclick="startAnalysis()">
-                Analyze Documents
-            </button>
+            <div id="status" class="status"></div>
         </div>
 
-        <div id="progressWrapper" style="display:none; margin-top:20px;">
-            <div style="font-size:13px; margin-bottom:6px; color:#9bb9d4;">
-                Analyzing documents with AI...
-                <span id="progressPercent">0%</span>
-            </div>
-            <div style="background:#102a3a; border-radius:10px; overflow:hidden; height:10px;">
-                <div id="progressBar"
-                    style="height:100%; width:0%; background:linear-gradient(90deg,#4fa3ff,#7abaff); transition:width 0.4s ease;">
-                </div>
-            </div>
-        </div>
-
-        <div id="status" class="status"></div>
-
-        <div id="resultArea">
-
-            <label style="color:#fff; font-weight:600;">Data Verification:</label>
-
-            <div class="preview-container">
-                <table class="preview-table" id="previewTable">
-                    </table>
-            </div>
-
-            <div style="text-align:right;">
-                <span class="toggle-json" onclick="toggleJsonView()">Toggle Raw JSON View</span>
-            </div>
-
-            <div id="jsonContainer" style="display:none;">
-                <label>Raw AI Output:</label>
-                <textarea id="jsonOutput"></textarea>
-            </div>
-
-            <button id="saveBtn" class="save-btn" onclick="finalizeSave()">
-                Save Data & Files to Salesforce
-            </button>
-        </div>
+        <div id="loadingMessage">Connecting to Salesforce...</div>
     </div>
 
-    <script>
-        // --- GLOBAL VARS ---
-        let CHART_ID = null;
-        let GEMINI_API_KEY = null;
-        let SF_SESSION_ID = null;
-        let SF_BASE_URL = null;
-        let CACHED_AI_TIME = 0;
-        let selectedFiles = [];
-        const GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+<script>
+/* =========================================================
+   GLOBAL CONTEXT & CONFIG
+   ========================================================= */
+let CHART_ID = null;
+let GEMINI_API_KEY = null;
+let SF_SESSION_ID = null;
+let SF_BASE_URL = null;
+let CACHED_AI_TIME = 0;
 
-        // --- UI HELPERS ---
-        function toggleJsonView() {
-            const container = document.getElementById("jsonContainer");
-            if (container.style.display === "none") {
-                container.style.display = "block";
-            } else {
-                container.style.display = "none";
-            }
+let selectedFiles = [];
+
+// Using Gemini 1.5 Pro for both as PT/OT extraction requires high reasoning
+const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+
+/* =========================================================
+   SALESFORCE CONNECTION
+   ========================================================= */
+window.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "SF_CONTEXT") {
+        console.log("✅ Received Context from Salesforce");
+        CHART_ID = event.data.recordId;
+        GEMINI_API_KEY = event.data.apiKey;
+        SF_SESSION_ID = event.data.sessionId;
+        SF_BASE_URL = event.data.baseUrl;
+
+        document.getElementById("loadingMessage").style.display = "none";
+        document.getElementById("mainCard").style.display = "block";
+    }
+});
+
+/* =========================================================
+   UI LOGIC
+   ========================================================= */
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+    document.querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+function handleFileSelect(inputElement) {
+    if (inputElement.files && inputElement.files.length > 0) {
+        for (let i = 0; i < inputElement.files.length; i++) {
+            selectedFiles.push(inputElement.files[i]);
         }
+        renderFileList();
+        inputElement.value = "";
+    }
+}
 
-        let progressValue = 1;
-        let progressTimer = null;
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    renderFileList();
+}
 
-        function showProgress() {
-            progressValue = 1;
+function renderFileList() {
+    const container = document.getElementById("fileListContainer");
+    const header = document.getElementById("fileSectionHeader");
+    const countSpan = document.getElementById("fileCount");
+
+    container.innerHTML = "";
+    if (selectedFiles.length === 0) {
+        container.classList.add("hidden");
+        header.classList.add("hidden");
+        return;
+    }
+
+    header.classList.remove("hidden");
+    container.classList.remove("hidden");
+    countSpan.innerText = selectedFiles.length;
+
+    selectedFiles.forEach((file, index) => {
+        const item = document.createElement("div");
+        item.className = "file-item";
+        item.innerHTML = `
+            <span class="file-name">📄 ${file.name}</span>
+            <button class="remove-btn" onclick="removeFile(${index})">×</button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function showStatus(msg, isError = false) {
+    const el = document.getElementById("status");
+    el.innerHTML = msg;
+    el.className = "status " + (isError ? "error" : "success");
+}
+
+/* =========================================================
+   PROGRESS LOGIC
+   ========================================================= */
+let progressTimer = null;
+let progressValue = 0;
+
+function startProgress() {
+    document.getElementById("progressWrapper").style.display = "block";
+    progressValue = 0;
+    updateProgress(0, "Starting...");
+    progressTimer = setInterval(() => {
+        if (progressValue < 90) {
+            progressValue++;
             updateProgress(progressValue);
-            document.getElementById("progressWrapper").style.display = "block";
         }
+    }, 150);
+}
 
-        function hideProgress() {
-            clearInterval(progressTimer);
-            progressTimer = null;
-            document.getElementById("progressWrapper").style.display = "none";
-        }
+function stopProgress() {
+    clearInterval(progressTimer);
+    updateProgress(100, "Complete");
+}
 
-        function updateProgress(value) {
-            const bar = document.getElementById("progressBar");
-            const label = document.getElementById("progressPercent");
-            const safeValue = Math.min(100, Math.max(1, value));
-            bar.style.width = safeValue + "%";
-            label.innerText = safeValue + "%";
-        }
+function updateProgress(val, text) {
+    document.getElementById("progressBar").style.width = val + "%";
+    document.getElementById("progressPercent").innerText = val + "%";
+    if (text) document.getElementById("progressStatus").innerText = text;
+}
 
-        function startAutoProgress(to = 1, speed = 300) {
-            clearInterval(progressTimer);
-            progressTimer = setInterval(() => {
-                if (progressValue < to) {
-                    progressValue += 1;
-                    updateProgress(progressValue);
-                }
-            }, speed);
-        }
+/* =========================================================
+   MAIN ANALYSIS LOGIC (PARALLEL PROCESSING)
+   ========================================================= */
+async function startAnalysis() {
+    const oasisOutput = document.getElementById("oasisOutput");
+    const ptotOutput = document.getElementById("ptotOutput");
+    const analyzeBtn = document.getElementById("analyzeBtn");
 
-        function disableUploadUI() {
-            document.getElementById("mainControls").classList.add("upload-disabled");
-        }
+    // Reset UI
+    oasisOutput.value = "";
+    ptotOutput.value = "";
+    showStatus("");
+    document.getElementById("resultSection").classList.add("hidden");
 
-        function enableUploadUI() {
-            document.getElementById("mainControls").classList.remove("upload-disabled");
-        }
+    if (!GEMINI_API_KEY) { showStatus("❌ Missing API Key", true); return; }
+    if (selectedFiles.length === 0) { showStatus("❌ Select files first", true); return; }
 
-        function showStatus(message, isError = false) {
-            const status = document.getElementById("status");
-            status.innerHTML = `<span class="${isError ? 'error' : 'success'}">${message}</span>`;
-        }
+    try {
+        analyzeBtn.disabled = true;
+        document.getElementById("inputSection").classList.add("disabled-ui");
+        startProgress();
 
-        // --- SALESFORCE LISTENER ---
-        window.addEventListener("message", (event) => {
-            if (event.data && event.data.type === "SF_CONTEXT") {
-                console.log("✅ Received Context from Salesforce");
-                CHART_ID = event.data.recordId;
-                GEMINI_API_KEY = event.data.apiKey;
-                SF_SESSION_ID = event.data.sessionId;
-                SF_BASE_URL = event.data.baseUrl;
-                document.getElementById("loadingMessage").style.display = "none";
-                document.getElementById("mainControls").style.display = "block";
-                showStatus("✅ Connected. Ready to analyze.", false);
-            }
-        });
+        const startTime = Date.now();
 
-        // --- FILE HANDLING ---
-        function handleFileSelect(inputElement) {
-            if (inputElement.files && inputElement.files.length > 0) {
-                for (let i = 0; i < inputElement.files.length; i++) {
-                    selectedFiles.push(inputElement.files[i]);
-                }
-                renderFileList();
-                inputElement.value = "";
-            }
-        }
+        // 1. Read Files
+        updateProgress(10, "Reading files...");
+        const fileDataArray = await Promise.all(selectedFiles.map(readFileAsBase64));
 
-        function removeFile(index) {
-            selectedFiles.splice(index, 1);
-            renderFileList();
-        }
+        // 2. Parallel AI Calls
+        updateProgress(30, "AI Analysis Running (OASIS + PT/OT)...");
 
-        function renderFileList() {
-            const container = document.getElementById("fileListContainer");
-            const header = document.getElementById("fileSectionHeader");
-            const countSpan = document.getElementById("fileCount");
+        // Run both OASIS and PT/OT extraction in parallel using Gemini 1.5 Pro
+        const [oasisResult, ptotResult] = await Promise.all([
+            runOasisExtraction(fileDataArray),
+            runPtOtExtraction(fileDataArray)
+        ]);
 
-            container.innerHTML = "";
-            if (selectedFiles.length === 0) {
-                container.style.display = "none";
-                header.style.display = "none";
-                return;
-            }
+        CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-            header.style.display = "block";
-            container.style.display = "flex";
-            countSpan.innerText = selectedFiles.length;
+        // 3. Display Results
+        oasisOutput.value = formatJson(oasisResult);
+        ptotOutput.value = formatJson(ptotResult);
 
-            selectedFiles.forEach((file, index) => {
-                const item = document.createElement("div");
-                item.className = "file-item";
-                const sizeMB = (file.size / 1024 / 1024).toFixed(2);
-                item.innerHTML = `
-            <div class="file-left">
-                <div class="file-type-icon">📄</div>
-                <div class="file-meta">
-                    <div class="file-name" title="${file.name}">${file.name}</div>
-                    <div class="file-size">${sizeMB} MB</div>
-                </div>
-            </div>
-            <button class="remove-btn" onclick="removeFile(${index})" title="Remove file">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                    <path d="M10 11v6"></path><path d="M14 11v6"></path>
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
-                </svg>
-            </button>`;
-                container.appendChild(item);
-            });
-        }
+        document.getElementById("resultSection").classList.remove("hidden");
+        stopProgress();
+        showStatus("✅ Analysis Complete", false);
 
-        function readFileAsBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve({
-                    mimeType: file.type,
-                    base64: reader.result.split(",")[1],
-                    name: file.name
-                });
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
+    } catch (err) {
+        console.error(err);
+        clearInterval(progressTimer);
+        showStatus("❌ " + err.message, true);
+    } finally {
+        analyzeBtn.disabled = false;
+        document.getElementById("inputSection").classList.remove("disabled-ui");
+    }
+}
 
-        // --- TABLE RENDERING ---
-        function renderPreviewTable(jsonData) {
-            let data = {};
-            try {
-                data = JSON.parse(jsonData);
-            } catch (e) {
-                return; // Invalid JSON
-            }
+function formatJson(str) {
+    try {
+        const clean = str.replace(/```json/g, "").replace(/```/g, "").trim();
+        return JSON.stringify(JSON.parse(clean), null, 4);
+    } catch (e) {
+        return str;
+    }
+}
 
-            const table = document.getElementById("previewTable");
-            table.innerHTML = "";
+/* =========================================================
+   AI FLOW 1: OASIS EXTRACTION (1.5 Pro)
+   ========================================================= */
+async function runOasisExtraction(fileDataArray) {
+    const prompt = `
+   You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
-            // Helper to add row
-            const addRow = (key, val) => {
-                if (!val || val === "N/A" || val === "null") return; // Skip empty
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td>${key.replace(/_/g, " ")}</td><td>${val}</td>`;
-                table.appendChild(tr);
-            };
+VISUAL INSTRUCTIONS
+This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
+Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or circled numbers.
+Ignore unchecked boxes (☐, [ ]).
 
-            const addHeader = (title) => {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td colspan="2" class="category-header">${title}</td>`;
-                table.appendChild(tr);
-            }
+DATA FORMATTING RULES (CRITICAL)
+NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
+ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
+MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
+DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
 
-            // --- OASIS ---
-            addHeader("OASIS Data");
-            if (data.SOC_Date) addRow("SOC Date", data.SOC_Date);
-            if (data.M1830_Bathing_Actual__c) addRow("Bathing (M1830)", data.M1830_Bathing_Actual__c);
-            if (data.M1850_Transferring_Actual__c) addRow("Transferring (M1850)", data.M1850_Transferring_Actual__c);
-            if (data.M1860_Ambulation_Locomotion_Actual__c) addRow("Ambulation (M1860)", data.M1860_Ambulation_Locomotion_Actual__c);
+SECTION SPECIFIC RULES
+M-Items & B/D-Items:
+Find the question ID (e.g., M1830, B1000).
+Find the option that is VISUALLY marked.
+Extract the numeric code associated with that option.
 
-            // --- PT ---
-            addHeader("Physical Therapy (PT)");
-            const ptKeys = Object.keys(data).filter(k => k.includes("GG_PT_") || k === "Bed_Mobility__c" || k === "Gait__c");
-            if (ptKeys.length === 0) {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td colspan="2" style="font-style:italic; color:#6b6b6b;">No PT data extracted</td>`;
-                table.appendChild(tr);
-            } else {
-                ptKeys.forEach(k => addRow(k, data[k]));
-            }
+ITEMS TO EXTRACT
+If an item is not found or not visually marked, return "N/A".
 
-            // --- OT ---
-            addHeader("Occupational Therapy (OT)");
-            const otKeys = Object.keys(data).filter(k => k.includes("GG_OT_"));
-            if (otKeys.length === 0) {
-                const tr = document.createElement("tr");
-                tr.innerHTML = `<td colspan="2" style="font-style:italic; color:#6b6b6b;">No OT data extracted</td>`;
-                table.appendChild(tr);
-            } else {
-                otKeys.forEach(k => addRow(k, data[k]));
-            }
-        }
+--- CHART DATA ---
+M0030 (Start of Care Date) -> Return YYYY-MM-DD
+M0032 (Resumption of Care Date) -> Return YYYY-MM-DD
+M0060 (Zip Code) -> Return ONLY the first 5 characters. Ignore any suffix.
+M0110 (Episode Timing) -> Return code "1" (Early) or "2" (Later)
+M1005 (Inpatient Discharge Date) -> Return YYYY-MM-DD
+M0069 (Gender) -> Return code "1" (Male) or "2" (Female).
+M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT).
 
-        // --- MAIN ANALYSIS LOGIC ---
-        async function startAnalysis() {
-            const analyzeBtn = document.getElementById("analyzeBtn");
-            const resultArea = document.getElementById("resultArea");
-            const jsonOutput = document.getElementById("jsonOutput");
+--- PLAN OF CARE / ORDERS ---
+Activities Permitted:
+Look for the header "Activities Permitted".
+Return a comma-separated list of EVERY checkbox that is visually marked.
+DME:
+Look for the header "DME".
+Return a comma-separated list of EVERY checkbox that is visually marked.
 
-            resultArea.style.display = "none";
-            jsonOutput.value = "";
+--- OASIS ITEMS ---
+M0090 (Date Assessment Completed) -> Return YYYY-MM-DD
+M1000 (Inpatient Discharge History - list all checked numbers 1-7)
+M1033 (Risk for Hospitalization – list all checked numbers)
+B1000 (Vision)
+M1400 (Dyspnea)
+M1700 (Cognitive Functioning)
+M1710 (When Confused)
+M1720 (When Anxious)
+M1740 (Cognitive/Behavioral Symptoms – list all checked numbers)
+M1745 (Disruptive Behavior)
+M1800 (Grooming)
+M1810 (Upper Body Dressing)
+M1820 (Lower Body Dressing)
+M1830 (Bathing)
+M1840 (Toilet Transfer)
+M1845 (Toileting Hygiene)
+M1850 (Transferring)
+M1860 (Ambulation)
+M1870 (Feeding)
+M2020 (Oral Medications)
+J0530 (Pain Interference with Activities)
 
-            if (!CHART_ID || !GEMINI_API_KEY) {
-                showStatus("❌ Configuration missing. Refresh Salesforce.", true);
-                return;
-            }
+--- GG ITEMS (SELF-CARE & MOBILITY) ---
+Extract the "SOC/ROC Performance" code (e.g., 06, 05, 04, 03, 02, 01, 07, 09, 10, 88) for the following items:
+GG0130 B (Oral Hygiene)
+GG0130 C (Toileting Hygiene)
+GG0130 E (Shower/Bathe Self)
+GG0130 F (Upper Body Dressing)
+GG0130 G (Lower Body Dressing)
+GG0130 H (Footwear)
+GG0170 A (Roll left/right)
+GG0170 B (Sit to lying)
+GG0170 C (Lying to sitting)
+GG0170 D (Sit to stand)
+GG0170 E (Chair/bed transfer)
+GG0170 F (Toilet transfer)
+GG0170 I (Walk 10 feet)
+GG0170 J (Walk 50 feet w/ turns)
+GG0170 K (Walk 150 feet)
+GG0170 L (Walk 10 feet uneven)
+GG0170 M (1 step/curb)
+GG0170 N (4 steps)
+GG0170 O (12 steps)
+GG0170 R (Wheel 50 feet)
+GG0170 S (Wheel 150 feet)
 
-            if (selectedFiles.length === 0) {
-                showStatus("❌ Select files first.", true);
-                return;
-            }
+--- D0150 PATIENT MOOD INTERVIEW ---
+This section has two columns. Extract the numeric code for checks in Row A and Row B.
+Row A (Little interest): Col 1 (Symptom), Col 2 (Frequency)
+Row B (Feeling down): Col 1 (Symptom), Col 2 (Frequency)
 
-            try {
-                analyzeBtn.disabled = true;
-                disableUploadUI();
-                showProgress();
-                startAutoProgress(90, 250);
+SALESFORCE OUTPUT REQUIREMENT (MANDATORY)
+You must identify values using the OASIS codes above, but the FINAL OUTPUT must use the specific JSON keys below.
 
-                showStatus(`Reading ${selectedFiles.length} file(s)...`);
-                const fileDataArray = await Promise.all(selectedFiles.map(file => readFileAsBase64(file)));
+Use this mapping EXACTLY:
+SOC_Date -> M0030 (YYYY-MM-DD)
+ROC_Date -> M0032 (YYYY-MM-DD)
+Zip_Code -> M0060 (First 5 digits only)
+Episode_Timing -> M0110 (1 or 2)
+M0069 -> M0069 (1 or 2)
+M0080 -> M0080 (1, 2, 3, or 4)
+Inpatient_Discharge_Date -> M1005 (YYYY-MM-DD)
+M0090_Date_Assessment_Completed -> M0090 (YYYY-MM-DD)
+M1000_Discharge_History -> M1000 (Comma separated list of codes)
+Activities Permitted -> Activities_Permitted__c
+DME -> DME_Supplies__c
+B1000 -> M1200_Vision__c
+D0150 Row A Col 1 -> Little_interest_symptom_presence__c
+D0150 Row A Col 2 -> Little_interest_symptom_frequency__c
+D0150 Row B Col 1 -> Feeling_down_symptom_presence__c
+D0150 Row B Col 2 -> Feeling_down_symptom_frequency__c
+M1033 -> Functional_Points_M1033__c
+M1400 -> M1400_SOB_Actual__c
+M1700 -> M1700_Cognitive_Functioning__c
+M1710 -> M1710_When_Confused__c
+M1720 -> M1720_When_Anxious__c
+M1740 -> M1740_Cognitive_behavioral_and__c
+M1745 -> M1745_Frequncy_of_Disruptive_Behavior__c
+M1800 -> M1800_Grooming_Actual__c
+M1810 -> M1810_Ability_to_Dress_Upper_Body_Actual__c
+M1820 -> M1820_Ability_to_Dress_Lower_Body_Actual__c
+M1830 -> M1830_Bathing_Actual__c
+M1840 -> M1840_Toilet_Transferring_Actual__c
+M1845 -> M1845_Toilet_Hyg_Actual__c
+M1850 -> M1850_Transferring_Actual__c
+M1860 -> M1860_Ambulation_Locomotion_Actual__c
+M1870 -> M1870_Feeding_Actual__c
+M2020 -> M2020_Oral_Medications_Actual__c
+J0530 -> J0530_Pain_Interference_with_Day_to_Da__c
 
-                showStatus("Running AI Multi-Doc Analysis...");
-                const startTime = Date.now();
-                const rawResult = await callGemini(GEMINI_API_KEY, fileDataArray);
-                CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
+GG0130 B -> GG0130_B_Oral_Hygiene__c
+GG0130 C -> GG0130_C_Toileting_Hygiene__c
+GG0130 E -> GG0130_E_Shower_bathe_self__c
+GG0130 F -> GG0130_F_Upper_body_dressing__c
+GG0130 G -> GG0130_G_Lower_body_dressing__c
+GG0130 H -> GG0130_H_Putting_on_taking_off_footwear__c
+GG0170 A -> GG0170_A_Roll_left_and_right__c
+GG0170 B -> GG0170_B_Sit_to_lying__c
+GG0170 C -> GG0170_C_Lying_to_sitting_on_side_of_bed__c
+GG0170 D -> GG0170_D_Sit_to_stand__c
+GG0170 E -> GG0170_E_Chair_bed_to_chair_transfer__c
+GG0170 F -> GG0170_F_Toilet_transfer__c
+GG0170 I -> GG0170_I_Walk_10_feet__c
+GG0170 J -> GG0170_J_Walk_50_feet_with_two_turns__c
+GG0170 K -> GG0170_K_Walk_150_feet__c
+GG0170 L -> GG0170_L_Walking_10_feet_on_uneven_surf__c
+GG0170 M -> GG0170_M_1_step_curb__c
+GG0170 N -> GG0170_N_4_steps__c
+GG0170 O -> GG0170_O_12_steps__c
+GG0170 R -> GG0170_R_Wheel_50_feet_with_two_turns__c
+GG0170 S -> GG0170_S_Wheel_150_feet__c
 
-                clearInterval(progressTimer);
-                updateProgress(100);
-
-                // Pretty print and display
-                let prettyJson = rawResult;
-                try {
-                    const cleanJson = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
-                    prettyJson = JSON.stringify(JSON.parse(cleanJson), null, 4);
-                    renderPreviewTable(cleanJson);
-                } catch (e) {
-                    console.warn("JSON Parse error for preview", e);
-                }
-
-                jsonOutput.value = prettyJson;
-                resultArea.style.display = "block";
-
-                showStatus("✅ Analysis complete. Verify data below.", false);
-                hideProgress();
-                document.getElementById("mainControls").style.display = "none";
-                analyzeBtn.disabled = false;
-                enableUploadUI();
-
-            } catch (error) {
-                console.error(error);
-                clearInterval(progressTimer);
-                hideProgress();
-                showStatus("❌ " + error.message, true);
-                analyzeBtn.disabled = false;
-                enableUploadUI();
-            }
-        }
-
-        async function callGemini(apiKey, fileDataArray) {
-            // --- UNIFIED PROMPT ---
-            const instructions = `
-You are an expert Medical Data Encoder. Your task is to analyze the provided documents, which may be OASIS-E1 assessments, Physical Therapy (PT) Evaluations, or Occupational Therapy (OT) Evaluations.
-
-Analyze ALL pages. Merge findings into a SINGLE JSON object.
-
-============================================================
-SECTION 1: OASIS-E1 EXTRACTION RULES (If OASIS document exists)
-============================================================
-Extract these fields based on checkboxes/marked items (☑, [X], circled numbers).
-NO LEADING ZEROS for M-items (e.g. "01" -> "1"). 
-KEEP LEADING ZEROS for GG-items (e.g. "06").
-Dates: YYYY-MM-DD.
-
-MAP TO THESE JSON KEYS:
-SOC_Date -> M0030
-ROC_Date -> M0032
-Zip_Code -> M0060 (5 digits)
-Episode_Timing -> M0110
-M0069 -> M0069
-M0080 -> M0080
-Inpatient_Discharge_Date -> M1005
-M0090_Date_Assessment_Completed -> M0090
-M1000_Discharge_History -> M1000 (comma separated)
-Activities_Permitted__c -> Activities Permitted (comma separated list of labels)
-DME_Supplies__c -> DME (comma separated list of labels)
-M1200_Vision__c -> B1000
-Functional_Points_M1033__c -> M1033
-M1400_SOB_Actual__c -> M1400
-M1700_Cognitive_Functioning__c -> M1700
-M1710_When_Confused__c -> M1710
-M1720_When_Anxious__c -> M1720
-M1740_Cognitive_behavioral_and__c -> M1740
-M1745_Frequncy_of_Disruptive_Behavior__c -> M1745
-M1800_Grooming_Actual__c -> M1800
-M1810_Ability_to_Dress_Upper_Body_Actual__c -> M1810
-M1820_Ability_to_Dress_Lower_Body_Actual__c -> M1820
-M1830_Bathing_Actual__c -> M1830
-M1840_Toilet_Transferring_Actual__c -> M1840
-M1845_Toilet_Hyg_Actual__c -> M1845
-M1850_Transferring_Actual__c -> M1850
-M1860_Ambulation_Locomotion_Actual__c -> M1860
-M1870_Feeding_Actual__c -> M1870
-M2020_Oral_Medications_Actual__c -> M2020
-J0530_Pain_Interference_with_Day_to_Da__c -> J0530
-
-OASIS GG ITEMS (Extract Code only e.g. "06", "05"):
-GG0130_B_Oral_Hygiene__c -> GG0130 B
-GG0130_C_Toileting_Hygiene__c -> GG0130 C
-GG0130_E_Shower_bathe_self__c -> GG0130 E
-GG0130_F_Upper_body_dressing__c -> GG0130 F
-GG0130_G_Lower_body_dressing__c -> GG0130 G
-GG0130_H_Putting_on_taking_off_footwear__c -> GG0130 H
-GG0170_A_Roll_left_and_right__c -> GG0170 A
-GG0170_B_Sit_to_lying__c -> GG0170 B
-GG0170_C_Lying_to_sitting_on_side_of_bed__c -> GG0170 C
-GG0170_D_Sit_to_stand__c -> GG0170 D
-GG0170_E_Chair_bed_to_chair_transfer__c -> GG0170 E
-GG0170_F_Toilet_transfer__c -> GG0170 F
-GG0170_I_Walk_10_feet__c -> GG0170 I
-GG0170_J_Walk_50_feet_with_two_turns__c -> GG0170 J
-GG0170_K_Walk_150_feet__c -> GG0170 K
-GG0170_L_Walking_10_feet_on_uneven_surf__c -> GG0170 L
-GG0170_M_1_step_curb__c -> GG0170 M
-GG0170_N_4_steps__c -> GG0170 N
-GG0170_O_12_steps__c -> GG0170 O
-GG0170_R_Wheel_50_feet_with_two_turns__c -> GG0170 R
-GG0170_S_Wheel_150_feet__c -> GG0170 S
-
-============================================================
-SECTION 2: PT / OT EVALUATION RULES (If PT/OT documents exist)
-============================================================
-Extract functional assessment data. Look for "Current" status. Ignore "Prior" or "Goal".
-
-STRICT VALUE MAPPING (Convert doc terms to EXACT Required Value):
-- 06, Ind, Independent, Safe -> "6 - Independent"
-- 05, Mod I, Modified Independent, Setup/Cleanup -> "5 - Moderly Independent"
-- Walker/Cane used w/o assist, Assist with Device -> "4 - Assist with Device"
-- Sup, Supervision, ST, SBA, Stand By Assist, SC -> "4 - Supervision"
-- CGA, Contact Guard Assist, Caregiver Assist -> "4 - Caregiver Assist"
-- 03, Min A, Minimum Assist, PM, 25% -> "3 - Minimum Assist"
-- Mod A, Moderate Assist, 50% -> "3 - Moderate Assist"
-- 02, Max A, Max Assistance, SM, 75% -> "2 - Max Assistance"
-- 01, Dep, Dependent, Total Assist, >75%, Unable -> "1 - Dependent"
-- NT, N/A, Not Attempted -> "NT - Not Attempted"
-*If "SM" is found, map to "2 - Max Assistance" unless explicitly labeled Moderate.
-
-PT FIELDS (Populate if PT Eval found):
-GG_PT_Sit_Stand__c -> (Sit to Stand)
-GG_PT_Bed_Wheelchair__c -> (Bed to Chair/Wheelchair)
-GG_PT_Wheelchair_Bed__c -> (Wheelchair to Bed, or use Bed_Wheelchair value)
-GG_PT_Car_Van__c -> (Car Transfer)
-GG_PT_Toilet_Transfer__c -> (Toilet Transfer / Commode)
-GG_PT_Bathing__c -> (Tub / Shower Transfer)
-GG_PT_Level_10_Feet__c -> (Ambulation 10 ft)
-GG_PT_Level_50_Feet__c -> (Ambulation 50 ft)
-GG_PT_Level_150_Feet__c -> (Ambulation 150 ft)
-GG_PT_Unlevel__c -> (Uneven Surfaces)
-GG_PT_1_Step__c -> (1 Step / Curb)
-GG_PT_4_Steps__c -> (4 Steps)
-GG_PT_12_Steps__c -> (12 Steps)
-
-OT FIELDS (Populate if OT Eval found):
-Date_of_OT_Eval__c -> (YYYY-MM-DD)
-GG_OT_Feeding__c -> (Eating / Feeding)
-GG_OT_Oral_Hygiene__c -> (Teeth / Oral)
-GG_OT_Grooming__c -> (Grooming / Hygiene)
-GG_OT_Toilet_Hygiene__c -> (Toileting Hygiene / Clothing)
-GG_OT_Bathing__c -> (Bathing / Washing Body)
-GG_OT_Upper_Body_Dressing__c -> (Upper Body Dressing)
-GG_OT_Lower_Body_Dressing__c -> (Lower Body Dressing)
-GG_OT_Sock_Shoes__c -> (Footwear / Shoes / Socks)
-GG_OT_Car_Van__c -> (Car Transfer)
-GG_OT_Toilet_Transfer__c -> (Toilet Transfer)
-
-GENERAL FIELDS (All Documents):
-Complete_PT_OT_Eval__c -> "Yes"
-Date_of_PT_OT_Eval__c -> (Evaluation Date YYYY-MM-DD)
-Bed_Mobility__c -> (Rolling Left/Right)
-Transfer__c -> (Supine to Sit / Sit to Supine)
-Gait__c -> (General ambulation)
-Wheelchair_Mobility__c -> (Wheelchair use)
-Other__c -> (Notes, else null)
-
-============================================================
-FINAL OUTPUT FORMAT
-============================================================
+FINAL OUTPUT FORMAT (STRICT)
 Return ONLY valid JSON.
-Return a SINGLE flat JSON object containing keys from all sections above.
-If a field is not found in the documents provided, set it to "N/A" or null.
-Do NOT include markdown formatting.
-`;
+Return a SINGLE flat JSON object.
+Keys MUST be the specific keys listed above.
+Values MUST be strings.
+Use comma-separated values for multi-select items.
+If an item is not found or not marked, return "N/A".
+Do NOT include markdown, backticks, explanations, or extra text.
+Do NOT include OASIS codes in the output keys.
+Do NOT add or remove keys.
 
-            const parts = [{ text: instructions }];
-            fileDataArray.forEach(f => {
-                parts.push({
-                    inlineData: { mimeType: f.mimeType, data: f.base64 }
-                });
-            });
+PICKLIST NORMALIZATION RULES (MANDATORY)
+Document wording and layouts may vary. Use semantic meaning, not exact text.
+Normalize selections to the VALID Salesforce picklist values below.
+Return ONLY the exact picklist label.
 
-            const response = await fetch(`${GEMINI_ENDPOINT}?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ contents: [{ parts: parts }] })
-            });
+Activities Permitted — VALID VALUES
+Complete Bed Rest, Up as Tolerated, Excercise Prescribed, Independent at Home, Cane, Walker, Best Rest BRP, Transfer Bed-Chair, Partial Weight Bearing, Crutches, Wheelchair, Other, Needs assist with ADLs, Transfer Assistance, Fall Precautions, Slow Position Changes, Wound Care, Abdom. Surgery Precautions, Requires Supervision
 
-            if (!response.ok) {
-                throw new Error("Gemini API call failed: " + response.statusText);
-            }
+DME — VALID VALUES
+Bedside Commode, Cane, Elevated Toilet Seat, Grab Bars, Hospital Bed, Nebulizer, Oxygen, Tub/Shower Bench, Walker, Wheelchair, Other, Bed Overlay, Brace/Orthotics, Crutches, Hoyer Lift, Respiratory Equipment, Slider Board, Trapeze, No-DME, CPAP Machine, Diabetic Supplies, Vital Sign Equipment, Removable Shower Head, Scooter, Wound Care Supplies, Alcohol/Hand Sanitizer, Lab Supplies, PPE
 
-            const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
+OUTPUT ENFORCEMENT
+Output ONLY valid picklist labels.
+Multiple values must be comma-separated.
+If nothing applies, return "N/A".
+    `;
+
+    return await callGeminiProVision(prompt, fileDataArray);
+}
+
+/* =========================================================
+   AI FLOW 2: PT/OT EXTRACTION (1.5 Pro)
+   ========================================================= */
+async function runPtOtExtraction(fileDataArray) {
+    const prompt = `
+    Role - You are an expert Medical Data Encoder.
+
+Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
+
+1. Value Mapping Logic (Strict)
+
+You must convert the raw text found in the document (e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output (Required Value) column below.
+Use the Terms/Codes Found in Doc column to identify the correct match.
+
+Functional Level	Terms / Codes Found in Doc	Target Output (Required Value)
+6	06, Ind, Independent, I, Safe	"6 - Independent"
+5	05, Mod I, Modified Independent, MI, Setup/Cleanup	"5 - Moderly Independent"
+4	Walker/Cane used w/o assist, Assist with Device	"4 - Assist with Device"
+4	Sup, Supervision, ST	"4 - Supervision"
+4	SBA, Stand By Assist, SC	"4 - Stand By Assist"
+4	CGA, Contact Guard Assist, Caregiver Assist, Required Assistance	"4 - Caregiver Assist"
+3	03, Min A, Minimum Assist, PM, 25%	"3 - Minimum Assist"
+3	Mod A, Moderate Assist, 50%	"3 - Moderate Assist"
+2	02, Max A, Max Assistance, SM, 75%	"2 - Max Assistance"
+1	01, Dep, Dependent, Total Assist, >75%, Unable	"1 - Dependent"
+NT	NT, N/A, Not Attempted, Not Tested	"NT - Not Attempted"
+
+Note:
+If the document uses checkmarks, map the column header (e.g., MIN, MOD, MAX) to the corresponding Target Output.
+
+2. Extraction Instructions
+
+Determine Discipline
+Identify whether the document is PT or OT and populate only the relevant fields.
+
+Find Current Status
+Extract the CURRENT status only.
+Ignore values from Prior Level, Previous, or Goal columns.
+
+Ambiguity Handling
+
+If the value is PM, map to "3 - Minimum Assist".
+
+If the value is SM, map to "2 - Max Assistance" (unless explicitly labeled Moderate).
+
+Null Handling
+
+If a field is not found in the document, exclude it from the JSON or set it to null.
+
+3. JSON Output Structure
+
+Return only a valid JSON object using the keys below.
+
+Occupational Therapy (OT) Fields
+
+(Only populate these if analyzing an OT document)
+
+Date_of_OT_Eval__c → Format: YYYY-MM-DD
+
+GG_OT_Feeding__c → Look for Eating / Feeding
+
+GG_OT_Oral_Hygiene__c → Look for Teeth / Dentures / Oral
+
+GG_OT_Grooming__c → Look for Grooming / Hygiene
+
+GG_OT_Toilet_Hygiene__c → Look for Toileting Hygiene / Clothing Management
+
+GG_OT_Bathing__c → Look for Bathing / Washing Body
+
+GG_OT_Upper_Body_Dressing__c → Look for Upper Body Dressing
+
+GG_OT_Lower_Body_Dressing__c → Look for Lower Body Dressing
+
+GG_OT_Sock_Shoes__c → Look for Footwear / Shoes / Socks
+
+If combined with Lower Body Dressing, use that score.
+
+GG_OT_Car_Van__c → Look for Car Transfer in OT section
+
+GG_OT_Toilet_Transfer__c → Look for Toilet Transfer in OT section
+
+Physical Therapy (PT) Fields
+
+(Only populate these if analyzing a PT document)
+
+GG_PT_Sit_Stand__c → Look for Sit to Stand transfer
+
+GG_PT_Bed_Wheelchair__c → Look for Bed to Chair / Wheelchair transfer
+
+GG_PT_Wheelchair_Bed__c → Look for Wheelchair to Bed transfer
+
+If not distinct, use Bed_Wheelchair value.
+
+GG_PT_Car_Van__c → Look for Car Transfer
+
+GG_PT_Toilet_Transfer__c → Look for Toilet Transfer / Commode
+
+GG_PT_Bathing__c → Look for Tub / Shower Transfer
+
+GG_PT_Level_10_Feet__c → Look for Ambulation / Gait – 10 ft
+
+GG_PT_Level_50_Feet__c → Look for Ambulation / Gait – 50 ft
+
+GG_PT_Level_150_Feet__c → Look for Ambulation / Gait – 150 ft
+
+GG_PT_Unlevel__c → Look for Uneven Surfaces
+
+GG_PT_1_Step__c → Look for 1 Step / Curb
+
+GG_PT_4_Steps__c → Look for 4 Steps
+
+GG_PT_12_Steps__c → Look for 12 Steps / Full Flight
+
+General Fields (All Documents)
+
+Complete_PT_OT_Eval__c → Always set to "Yes"
+
+Date_of_PT_OT_Eval__c → Date of evaluation (YYYY-MM-DD)
+
+Bed_Mobility__c → Look for Rolling Left / Right
+
+Transfer__c → Look for Supine to Sit / Sit to Supine
+
+Gait__c → Look for general ambulation if distances are not listed
+
+Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
+
+Other__c → Any other relevant functional notes, otherwise null
+    `;
+
+    return await callGeminiProVision(prompt, fileDataArray);
+}
+
+/* =========================================================
+   GEMINI 1.5 PRO CALLER
+   ========================================================= */
+async function callGeminiProVision(promptText, fileDataArray) {
+    const parts = [{ text: promptText }];
+    fileDataArray.forEach(f => {
+        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    });
+
+    const response = await fetch(`${GEMINI_PRO_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts: parts }] })
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error("Gemini API Error: " + err);
+    }
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
+
+/* =========================================================
+   SAVE LOGIC (ROUTING)
+   ========================================================= */
+async function finalizeSave() {
+    const saveBtn = document.getElementById("saveBtn");
+    const oasisData = document.getElementById("oasisOutput").value;
+    const ptotData = document.getElementById("ptotOutput").value;
+
+    try {
+        saveBtn.disabled = true;
+        saveBtn.innerText = "Saving...";
+
+        const promises = [];
+
+        // 1. Save OASIS Data
+        if (oasisData && oasisData.includes("{") && oasisData.length > 5) {
+            promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
+                chartId: CHART_ID,
+                rawJson: oasisData,
+                aiTimeSeconds: CACHED_AI_TIME
+            }));
         }
 
-        async function finalizeSave() {
-            const saveBtn = document.getElementById("saveBtn");
-            const jsonOutput = document.getElementById("jsonOutput");
-            const finalJson = jsonOutput.value;
-
-            if (!finalJson) {
-                showStatus("❌ No data to save", true);
-                return;
-            }
-
-            try {
-                saveBtn.disabled = true;
-                saveBtn.innerText = "Saving Data...";
-                showStatus("Saving extracted data to Salesforce...");
-
-                // 1. Save Data
-                const endpoint = `${SF_BASE_URL}/services/apexrest/oasis/ai-result`;
-                const response = await fetch(endpoint, {
-                    method: "POST",
-                    headers: {
-                        "Authorization": "Bearer " + SF_SESSION_ID,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        chartId: CHART_ID,
-                        rawJson: finalJson,
-                        aiTimeSeconds: CACHED_AI_TIME
-                    })
-                });
-
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error("Salesforce save failed: " + text);
-                }
-
-                // 2. Upload Files
-                if (selectedFiles.length > 0) {
-                    saveBtn.innerText = `Uploading ${selectedFiles.length} Files...`;
-                    const fileEndpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
-
-                    for (let i = 0; i < selectedFiles.length; i++) {
-                        const file = selectedFiles[i];
-                        showStatus(`Uploading file ${i + 1}/${selectedFiles.length}: ${file.name}...`);
-                        const fileData = await readFileAsBase64(file);
-
-                        const payload = {
-                            "Title": file.name,
-                            "PathOnClient": file.name,
-                            "VersionData": fileData.base64,
-                            "FirstPublishLocationId": CHART_ID,
-                            "Origin": "H"
-                        };
-
-                        const fResp = await fetch(fileEndpoint, {
-                            method: "POST",
-                            headers: {
-                                "Authorization": "Bearer " + SF_SESSION_ID,
-                                "Content-Type": "application/json",
-                                "Accept": "application/json"
-                            },
-                            body: JSON.stringify(payload)
-                        });
-
-                        if (!fResp.ok) throw new Error("File upload failed");
-                    }
-                }
-
-                showStatus("✅ Data & Files Saved Successfully!", false);
-                setTimeout(() => {
-                    window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
-                }, 800);
-                saveBtn.innerText = "Saved";
-
-            } catch (error) {
-                console.error(error);
-                showStatus("❌ Save failed: " + error.message, true);
-                saveBtn.disabled = false;
-                saveBtn.innerText = "Save Data & Files to Salesforce";
-            }
+        // 2. Save PT/OT Data (New Endpoint)
+        if (ptotData && ptotData.includes("{") && ptotData.length > 5) {
+            promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/pt-ot/ai-result`, {
+                chartId: CHART_ID,
+                rawJson: ptotData,
+                aiTimeSeconds: CACHED_AI_TIME
+            }));
         }
-    </script>
+
+        // 3. Upload Files
+        if (selectedFiles.length > 0) {
+            promises.push(uploadFiles());
+        }
+
+        await Promise.all(promises);
+
+        showStatus("✅ All Data & Files Saved!", false);
+        saveBtn.innerText = "Saved";
+        setTimeout(() => {
+             window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
+        }, 1000);
+
+    } catch (e) {
+        console.error(e);
+        showStatus("❌ Save Partial/Failed: " + e.message, true);
+        saveBtn.disabled = false;
+        saveBtn.innerText = "Retry Save";
+    }
+}
+
+async function sendToApex(endpoint, body) {
+    const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + SF_SESSION_ID, "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error("Apex Error: " + await response.text());
+}
+
+async function uploadFiles() {
+    const endpoint = `${SF_BASE_URL}/services/data/v57.0/sobjects/ContentVersion`;
+    for (let file of selectedFiles) {
+        const fileData = await readFileAsBase64(file);
+        await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                "Authorization": "Bearer " + SF_SESSION_ID,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "Title": file.name,
+                "PathOnClient": file.name,
+                "VersionData": fileData.base64,
+                "FirstPublishLocationId": CHART_ID,
+                "Origin": "H"
+            })
+        });
+    }
+}
+
+function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ mimeType: file.type, base64: reader.result.split(",")[1], name: file.name });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+</script>
 </body>
-
 </html>
-
