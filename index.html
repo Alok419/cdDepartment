@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>AI Clinical Analyzer (OASIS & PT/OT)</title>
+    <title>AI Clinical Analyzer (Unified)</title>
     <style>
         /* --- GLOBAL THEME (Professional Dark Mode) --- */
         :root {
@@ -173,36 +173,6 @@
         .save-btn:hover:not(:disabled) { transform: translateY(-1px); }
         .save-btn:disabled { background: #4b5563; box-shadow: none; cursor: not-allowed; }
 
-        /* --- TABS --- */
-        .tabs-header {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            margin-bottom: 20px;
-            margin-top: 20px;
-        }
-
-        .tab-btn {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            padding: 10px 20px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            border-bottom: 2px solid transparent;
-            transition: all 0.3s;
-        }
-
-        .tab-btn.active {
-            color: var(--accent-blue);
-            border-bottom-color: var(--accent-blue);
-        }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s; }
-
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
         /* --- RESULTS --- */
         .result-box {
             width: 100%;
@@ -214,7 +184,7 @@
             font-family: "Consolas", "Monaco", monospace;
             font-size: 13px;
             resize: vertical;
-            min-height: 250px;
+            min-height: 400px;
             box-sizing: border-box;
             outline: none;
         }
@@ -265,7 +235,7 @@
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
             <h2 class="main-title">AI Clinical Analyzer</h2>
-            <p class="subtitle">Unified Processing: OASIS Extraction & PT/OT Evaluations</p>
+            <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
                 <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
@@ -293,22 +263,9 @@
                 </div>
             </div>
 
-            <div id="resultSection" class="hidden">
-                <div class="tabs-header">
-                    <button class="tab-btn active" onclick="switchTab('oasis')">OASIS Data</button>
-                    <button class="tab-btn" onclick="switchTab('ptot')">PT/OT Evaluation</button>
-                </div>
-
-                <div id="tab-oasis" class="tab-content active">
-                    <p style="font-size:12px; color:#888;">Extracted OASIS M-Items & GG Codes (JSON)</p>
-                    <textarea id="oasisOutput" class="result-box" placeholder="Waiting for analysis..."></textarea>
-                </div>
-
-                <div id="tab-ptot" class="tab-content">
-                    <p style="font-size:12px; color:#888;">Extracted PT/OT Functional Data (JSON)</p>
-                    <textarea id="ptotOutput" class="result-box" placeholder="Waiting for analysis..."></textarea>
-                </div>
-
+            <div id="resultSection" class="hidden" style="margin-top: 25px;">
+                <p style="font-size:12px; color:#888; margin-bottom: 5px;">Combined Extracted Data (OASIS + PT/OT)</p>
+                <textarea id="combinedOutput" class="result-box" placeholder="Waiting for analysis..."></textarea>
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">Save All Data & Files</button>
             </div>
 
@@ -330,7 +287,7 @@ let CACHED_AI_TIME = 0;
 
 let selectedFiles = [];
 
-// CORRECTED: Changed from non-existent 'gemini-3-pro' to 'gemini-1.5-pro'
+// Using Gemini 1.5 Pro
 const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
 /* =========================================================
@@ -352,18 +309,9 @@ window.addEventListener("message", (event) => {
 /* =========================================================
    UI LOGIC
    ========================================================= */
-function switchTab(tabName) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-    document.querySelector(`.tab-btn[onclick="switchTab('${tabName}')"]`).classList.add('active');
-    document.getElementById(`tab-${tabName}`).classList.add('active');
-}
-
 function handleFileSelect(inputElement) {
     if (inputElement.files && inputElement.files.length > 0) {
         for (let i = 0; i < inputElement.files.length; i++) {
-            // Basic deduplication check
             const file = inputElement.files[i];
             if(!selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
                 selectedFiles.push(file);
@@ -442,16 +390,14 @@ function updateProgress(val, text) {
 }
 
 /* =========================================================
-   MAIN ANALYSIS LOGIC (PARALLEL PROCESSING)
+   MAIN ANALYSIS LOGIC (PARALLEL PROCESSING & MERGE)
    ========================================================= */
 async function startAnalysis() {
-    const oasisOutput = document.getElementById("oasisOutput");
-    const ptotOutput = document.getElementById("ptotOutput");
+    const combinedOutput = document.getElementById("combinedOutput");
     const analyzeBtn = document.getElementById("analyzeBtn");
 
     // Reset UI
-    oasisOutput.value = "";
-    ptotOutput.value = "";
+    combinedOutput.value = "";
     showStatus("");
     document.getElementById("resultSection").classList.add("hidden");
 
@@ -469,11 +415,10 @@ async function startAnalysis() {
         updateProgress(10, "Reading files...");
         const fileDataArray = await Promise.all(selectedFiles.map(readFileAsBase64));
 
-        // 2. Parallel AI Calls
+        // 2. Parallel AI Calls (Separate Prompts)
         updateProgress(30, "AI Analysis Running (OASIS + PT/OT)...");
 
-        // Run both OASIS and PT/OT extraction in parallel using Gemini 1.5 Pro
-        // Using Promise.allSettled allows one to fail without killing the other
+        // Run both OASIS and PT/OT extraction in parallel
         const results = await Promise.allSettled([
             runOasisExtraction(fileDataArray),
             runPtOtExtraction(fileDataArray)
@@ -481,21 +426,45 @@ async function startAnalysis() {
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // 3. Process Results
-        const oasisRes = results[0];
-        const ptotRes = results[1];
+        // 3. Process & Merge Results
+        updateProgress(80, "Merging Data...");
+        
+        let mergedJson = {};
 
-        if (oasisRes.status === "fulfilled") {
-             oasisOutput.value = formatJson(oasisRes.value);
+        // Helper to parse safely
+        const safeParse = (str) => {
+            try {
+                let clean = str.replace(/```json/g, "").replace(/```/g, "").trim();
+                const firstOpen = clean.indexOf('{');
+                const lastClose = clean.lastIndexOf('}');
+                if (firstOpen !== -1 && lastClose !== -1) {
+                    clean = clean.substring(firstOpen, lastClose + 1);
+                }
+                return JSON.parse(clean);
+            } catch (e) {
+                console.warn("Partial Parse Error:", e);
+                return {};
+            }
+        };
+
+        // Merge OASIS Result
+        if (results[0].status === "fulfilled") {
+            const oasisData = safeParse(results[0].value);
+            mergedJson = { ...mergedJson, ...oasisData };
         } else {
-             oasisOutput.value = "Error extracting OASIS: " + oasisRes.reason;
+            console.error("OASIS Failed:", results[0].reason);
         }
 
-        if (ptotRes.status === "fulfilled") {
-             ptotOutput.value = formatJson(ptotRes.value);
+        // Merge PT/OT Result
+        if (results[1].status === "fulfilled") {
+            const ptotData = safeParse(results[1].value);
+            mergedJson = { ...mergedJson, ...ptotData };
         } else {
-             ptotOutput.value = "Error extracting PT/OT: " + ptotRes.reason;
+            console.error("PTOT Failed:", results[1].reason);
         }
+
+        // 4. Display Combined JSON
+        combinedOutput.value = JSON.stringify(mergedJson, null, 4);
 
         document.getElementById("resultSection").classList.remove("hidden");
         stopProgress();
@@ -511,31 +480,8 @@ async function startAnalysis() {
     }
 }
 
-// Robust JSON Cleaner
-function formatJson(str) {
-    try {
-        // Remove Markdown code blocks
-        let clean = str.replace(/```json/g, "").replace(/```/g, "").trim();
-        
-        // Find the first '{' and the last '}' to handle introductory text
-        const firstOpen = clean.indexOf('{');
-        const lastClose = clean.lastIndexOf('}');
-        
-        if (firstOpen !== -1 && lastClose !== -1) {
-            clean = clean.substring(firstOpen, lastClose + 1);
-        }
-
-        const parsed = JSON.parse(clean);
-        return JSON.stringify(parsed, null, 4);
-    } catch (e) {
-        console.warn("JSON Parse Warning", e);
-        // Return original text if parsing fails so user can see what happened
-        return str;
-    }
-}
-
 /* =========================================================
-   AI FLOW 1: OASIS EXTRACTION (1.5 Pro)
+   AI FLOW 1: OASIS EXTRACTION
    ========================================================= */
 async function runOasisExtraction(fileDataArray) {
     const prompt = `
@@ -723,7 +669,7 @@ async function runOasisExtraction(fileDataArray) {
 }
 
 /* =========================================================
-   AI FLOW 2: PT/OT EXTRACTION (1.5 Pro)
+   AI FLOW 2: PT/OT EXTRACTION
    ========================================================= */
 async function runPtOtExtraction(fileDataArray) {
     const prompt = `
@@ -869,7 +815,6 @@ async function callGeminiProVision(promptText, fileDataArray) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             contents: [{ parts: parts }],
-            // Optional: Adjust safety settings if clinical forms get flagged
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
@@ -885,10 +830,9 @@ async function callGeminiProVision(promptText, fileDataArray) {
     }
     const data = await response.json();
     
-    // Safety check for candidates
     if (!data.candidates || data.candidates.length === 0) {
         if(data.promptFeedback && data.promptFeedback.blockReason) {
-             throw new Error("AI Blocked Response: " + data.promptFeedback.blockReason);
+             throw new Error("AI Blocked: " + data.promptFeedback.blockReason);
         }
         throw new Error("No response candidates returned.");
     }
@@ -897,12 +841,11 @@ async function callGeminiProVision(promptText, fileDataArray) {
 }
 
 /* =========================================================
-   SAVE LOGIC (ROUTING)
+   SAVE LOGIC (SINGLE API CALL)
    ========================================================= */
 async function finalizeSave() {
     const saveBtn = document.getElementById("saveBtn");
-    const oasisData = document.getElementById("oasisOutput").value;
-    const ptotData = document.getElementById("ptotOutput").value;
+    const combinedData = document.getElementById("combinedOutput").value;
 
     if(!CHART_ID) {
         showStatus("❌ Error: Missing Salesforce Chart ID.", true);
@@ -913,37 +856,23 @@ async function finalizeSave() {
         saveBtn.disabled = true;
         saveBtn.innerText = "Saving...";
 
-        const promises = [];
-
-        // 1. Save OASIS Data
-        if (oasisData && oasisData.includes("{") && oasisData.length > 5) {
-            promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
-                chartId: CHART_ID,
-                rawJson: oasisData,
-                aiTimeSeconds: CACHED_AI_TIME
-            }));
-        }
-
-        // 2. Save PT/OT Data
-        if (ptotData && ptotData.includes("{") && ptotData.length > 5) {
-            promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
-                chartId: CHART_ID,
-                rawJson: ptotData,
-                aiTimeSeconds: CACHED_AI_TIME
-            }));
-        }
-
-        // 3. Upload Files
+        // 1. Upload Files first (Sequential to be safe)
         if (selectedFiles.length > 0) {
-            promises.push(uploadFiles());
+            await uploadFiles();
         }
 
-        await Promise.all(promises);
+        // 2. Save Data (SINGLE Call for both OASIS and PT/OT keys)
+        if (combinedData && combinedData.length > 5) {
+            await sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
+                chartId: CHART_ID,
+                rawJson: combinedData, // Contains merged keys
+                aiTimeSeconds: CACHED_AI_TIME
+            });
+        }
 
         showStatus("✅ All Data & Files Saved!", false);
         saveBtn.innerText = "Saved";
         setTimeout(() => {
-             // Redirect logic or refresh
              window.location.href = `${SF_BASE_URL}/lightning/r/Chart__c/${CHART_ID}/view`;
         }, 1500);
 
@@ -962,17 +891,13 @@ async function sendToApex(endpoint, body) {
         body: JSON.stringify(body)
     });
     if (!response.ok) {
-        // Try to read text, if JSON parse fails, read generic error
         const errText = await response.text();
         throw new Error(`Apex Error (${response.status}): ` + errText);
     }
 }
 
 async function uploadFiles() {
-    // Updated to v60.0 for better compatibility
     const endpoint = `${SF_BASE_URL}/services/data/v60.0/sobjects/ContentVersion`;
-    
-    // Upload files sequentially to avoid hitting Salesforce concurrency limits
     for (let file of selectedFiles) {
         const fileData = await readFileAsBase64(file);
         await fetch(endpoint, {
@@ -1003,5 +928,3 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
-
-
