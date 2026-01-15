@@ -926,7 +926,7 @@ async function finalizeSave() {
 
         // 2. Save PT/OT Data
         if (ptotData && ptotData.includes("{") && ptotData.length > 5) {
-            promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/pt-ot/ai-result`, {
+            promises.push(sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
                 chartId: CHART_ID,
                 rawJson: ptotData,
                 aiTimeSeconds: CACHED_AI_TIME
@@ -1003,4 +1003,5 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
 
