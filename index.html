@@ -737,17 +737,17 @@ async function runPtOtExtraction(fileDataArray) {
     Use the Terms/Codes Found in Doc column to identify the correct match.
 
     Functional Level    Terms / Codes Found in Doc  Target Output (Required Value)
-    6   06, Ind, Independent, I, Safe   "6 - Independent"
-    5   05, Mod I, Modified Independent, MI, Setup/Cleanup  "5 - Moderly Independent"
-    4   Walker/Cane used w/o assist, Assist with Device "4 - Assist with Device"
-    4   Sup, Supervision, ST    "4 - Supervision"
-    4   SBA, Stand By Assist, SC    "4 - Stand By Assist"
-    4   CGA, Contact Guard Assist, Caregiver Assist, Required Assistance    "4 - Caregiver Assist"
-    3   03, Min A, Minimum Assist, PM, 25%  "3 - Minimum Assist"
-    3   Mod A, Moderate Assist, 50% "3 - Moderate Assist"
-    2   02, Max A, Max Assistance, SM, 75%  "2 - Max Assistance"
-    1   01, Dep, Dependent, Total Assist, >75%, Unable  "1 - Dependent"
-    NT  NT, N/A, Not Attempted, Not Tested  "NT - Not Attempted"
+    6   06, Ind, Independent, I, Safe   "6"
+    5   05, Mod I, Modified Independent, MI, Setup/Cleanup  "5"
+    4   Walker/Cane used w/o assist, Assist with Device "4"
+    4   Sup, Supervision, ST    "4"
+    4   SBA, Stand By Assist, SC    "4"
+    4   CGA, Contact Guard Assist, Caregiver Assist, Required Assistance    "4"
+    3   03, Min A, Minimum Assist, PM, 25%  "3"
+    3   Mod A, Moderate Assist, 50% "3"
+    2   02, Max A, Max Assistance, SM, 75%  "2"
+    1   01, Dep, Dependent, Total Assist, >75%, Unable  "1"
+    NT  NT, N/A, Not Attempted, Not Tested  "NT"
 
     Note:
     If the document uses checkmarks, map the column header (e.g., MIN, MOD, MAX) to the corresponding Target Output.
@@ -763,9 +763,9 @@ async function runPtOtExtraction(fileDataArray) {
 
     Ambiguity Handling
 
-    If the value is PM, map to "3 - Minimum Assist".
+    If the value is PM, map to "3".
 
-    If the value is SM, map to "2 - Max Assistance" (unless explicitly labeled Moderate).
+    If the value is SM, map to "2" (unless explicitly labeled Moderate).
 
     Null Handling
 
@@ -1003,3 +1003,4 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
