@@ -1272,13 +1272,13 @@
             const resultArea = document.getElementById("resultArea");
             const jsonOutput = document.getElementById("jsonOutput");
             const f2fOutput = document.getElementById("f2fOutput");
-            const ptOtOutput = document.getElementById("ptOtOutput"); // Added
+            const ptOtOutput = document.getElementById("ptOtOutput");
 
             // UI Reset
             resultArea.style.display = "none";
             jsonOutput.value = "";
             f2fOutput.value = "";
-            ptOtOutput.value = ""; // Reset PT/OT
+            ptOtOutput.value = "";
             showStatus("");
 
             // Validations
@@ -1298,37 +1298,50 @@
 
                 // Hide Main Controls and Show Progress
                 document.getElementById("mainControls").style.display = "none";
-                document.getElementById("featureCards").style.display = "none"; // Hide feature cards
+                document.getElementById("featureCards").style.display = "none";
 
-                // 🔵 Start progress
-                progressValue = 1;
-                updateProgress(1, "Initializing Batch...");
-                startAutoProgress(98, 150);
-
+                // 🔵 Start progress (Step 1)
                 const startTime = Date.now();
+                updateProgress(1, "Initializing Analysis...");
 
                 // --- STEP 1: READ FILES ---
-                updateProgress(progressValue, `Processing ${selectedFiles.length} file(s)...`);
+                updateProgress(5, `Reading ${selectedFiles.length} file(s)...`);
                 const fileDataArray = await Promise.all(
                     selectedFiles.map(file => readFileAsBase64(file))
                 );
 
-                // --- STEP 2: PARALLEL AI EXECUTION (Diagnosis, F2F, and PT/OT) ---
-                updateProgress(progressValue, "AI Running: Vision, F2F, and PT/OT Extraction...");
+                // --- STEP 2: CLINICAL DATA EXTRACTION (F2F & PT/OT) ---
+                // Stepper 2 threshold is ~15-30%
+                updateProgress(16, "Step 2: Extracting Clinical Data (F2F & PT/OT)...");
+                
+                // Run F2F
+                const f2fSummaryText = await callGeminiF2FSummary(fileDataArray);
+                updateProgress(25, "F2F Summary Extracted. Processing PT/OT...");
+                
+                // Run PT/OT
+                const ptOtResult = await runPtOtExtraction(fileDataArray);
+                updateProgress(31, "Step 3: Clinical Data Extraction Complete.");
 
-                const [rawExtraction, f2fSummaryText, ptOtResult] = await Promise.all([
-                    callGeminiVisionMulti(fileDataArray), // Diagnosis
-                    callGeminiF2FSummary(fileDataArray),  // F2F
-                    runPtOtExtraction(fileDataArray)      // PT/OT (New)
-                ]);
+                // --- STEP 3: DIAGNOSIS DETECTION ---
+                // Stepper 3 threshold is ~30-45%
+                updateProgress(35, "Step 3: Detecting Diagnoses & Clinical Entities...");
+                const rawExtraction = await callGeminiVisionMulti(fileDataArray);
+                updateProgress(46, "Step 4: Diagnoses Identified. Starting Validation...");
 
-                // --- STEP 3: AUDIT DIAGNOSES ---
-                updateProgress(progressValue, "AI Auditor: Validating ICD-10 Rules...");
+                // --- STEP 4: CODING GUIDELINES & VALIDATION (AUDITOR) ---
+                // Stepper 4 threshold is ~45%
+                // The auditor does Steps 4, 5, 6, 7 internally, so we simulate progress or just wait
+                updateProgress(50, "Step 4 & 5: Retrieving Guidelines & Validating Standards...");
+                
+                // We'll update progress artificially a bit if it takes long, or just jump when done?
+                // For now, let's just await the big auditor call.
                 const finalAuditJson = await callGeminiAuditor(rawExtraction);
+                
+                updateProgress(95, "Step 6 & 7: Finalizing & Mapping...");
 
                 CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-                // --- STEP 4: DISPLAY RESULTS ---
+                // --- DISPLAY RESULTS ---
                 // 1. Diagnosis JSON
                 let prettyJson = finalAuditJson;
                 try {
@@ -1348,13 +1361,13 @@
 
                 jsonOutput.value = prettyJson;
                 f2fOutput.value = f2fSummaryText;
-                ptOtOutput.value = prettyPtOt; // Display PT/OT
+                ptOtOutput.value = prettyPtOt;
 
-                // ✅ Populate new Report UI
+                // Populate Report UI
                 populateReportUI(f2fSummaryText, prettyPtOt, prettyJson);
 
-                // ✅ Finish progress
-                stopAutoProgress(100, "Complete");
+                // Finish
+                updateProgress(100, "Analysis Complete!");
 
                 setTimeout(() => {
                     document.getElementById("progressWrapper").style.display = "none";
@@ -1365,7 +1378,8 @@
 
             } catch (error) {
                 console.error(error);
-                stopAutoProgress(progressValue, "Failed");
+                // On error, we don't want to leave it hanging
+                updateProgress(100, "Error Occurred");
                 showStatus("❌ " + error.message, true);
 
             } finally {
@@ -1373,7 +1387,6 @@
                 analyzeBtn.innerText = "Analyze Documents";
                 enableUploadUI();
             }
-
         }
 
         /* =========================================================
