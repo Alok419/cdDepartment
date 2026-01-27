@@ -485,12 +485,12 @@ async function startAnalysis() {
    ========================================================= */
 async function runOasisExtraction(fileDataArray) {
     const prompt = `
-    You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
+    You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF/Document.
 
     VISUAL INSTRUCTIONS
     This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
-    Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or circled numbers.
-    Ignore unchecked boxes (☐, [ ]).
+    Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or (◉) circled numbers.
+    Ignore unchecked boxes (☐, [ ],()).
 
     DATA FORMATTING RULES (CRITICAL)
     NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
@@ -928,3 +928,4 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
