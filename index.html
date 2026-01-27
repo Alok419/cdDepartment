@@ -497,6 +497,7 @@ async function runOasisExtraction(fileDataArray) {
 
     DATA FORMATTING RULES (CRITICAL)
     - NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
+    - J0530 SPECIFIC: Only valid values are 1, 2, 3, 4, or 8. If "Rarely" is checked, return "1".
     - ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
     - MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
     - DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
@@ -938,3 +939,4 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
