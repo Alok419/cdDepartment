@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,7 +235,7 @@
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI Oasis Analyzer</h2>
+            <h2 class="main-title">AI Oasis Clinical Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -264,8 +265,19 @@
             </div>
 
             <div id="resultSection" class="hidden" style="margin-top: 25px;">
-                <p style="font-size:12px; color:#888; margin-bottom: 5px;">Combined Extracted Data (OASIS + PT/OT)</p>
-                <textarea id="combinedOutput" class="result-box" placeholder="Waiting for analysis..."></textarea>
+                <div style="display: flex; gap: 20px;">
+                    <div style="flex: 1;">
+                        <h3 style="color: #e0e0e0; font-size: 16px; margin-bottom: 10px;">OASIS Extraction</h3>
+                        <textarea id="oasisOutput" class="result-box" placeholder="OASIS Results..." style="min-height: 400px;"></textarea>
+                    </div>
+                    <div style="flex: 1;">
+                        <h3 style="color: #e0e0e0; font-size: 16px; margin-bottom: 10px;">PT/OT Extraction</h3>
+                        <textarea id="ptotOutput" class="result-box" placeholder="PT/OT Results..." style="min-height: 400px;"></textarea>
+                    </div>
+                </div>
+                <!-- Hidden Combined Output for logic retention if needed, though we will merge on save -->
+                <textarea id="combinedOutput" style="display:none;" class="result-box"></textarea>
+                
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">Save All Data & Files</button>
             </div>
 
@@ -381,6 +393,7 @@ function startProgress() {
 function stopProgress() {
     clearInterval(progressTimer);
     updateProgress(100, "Complete");
+   
 }
 
 function updateProgress(val, text) {
@@ -393,11 +406,13 @@ function updateProgress(val, text) {
    MAIN ANALYSIS LOGIC (PARALLEL PROCESSING & MERGE)
    ========================================================= */
 async function startAnalysis() {
-    const combinedOutput = document.getElementById("combinedOutput");
+    const oasisOutput = document.getElementById("oasisOutput");
+    const ptotOutput = document.getElementById("ptotOutput");
     const analyzeBtn = document.getElementById("analyzeBtn");
 
     // Reset UI
-    combinedOutput.value = "";
+    oasisOutput.value = "";
+    ptotOutput.value = "";
     showStatus("");
     document.getElementById("resultSection").classList.add("hidden");
 
@@ -426,11 +441,9 @@ async function startAnalysis() {
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // 3. Process & Merge Results
-        updateProgress(80, "Merging Data...");
+        // 3. Process & Display Results
+        updateProgress(80, "Processing Results...");
         
-        let mergedJson = {};
-
         // Helper to parse safely
         const safeParse = (str) => {
             try {
@@ -447,28 +460,32 @@ async function startAnalysis() {
             }
         };
 
-        // Merge OASIS Result
+        const oasisOutput = document.getElementById("oasisOutput");
+        const ptotOutput = document.getElementById("ptotOutput");
+
+        // Process OASIS Result
         if (results[0].status === "fulfilled") {
             const oasisData = safeParse(results[0].value);
-            mergedJson = { ...mergedJson, ...oasisData };
+            oasisOutput.value = JSON.stringify(oasisData, null, 4);
         } else {
             console.error("OASIS Failed:", results[0].reason);
+            oasisOutput.value = "Error extracting OASIS data: " + results[0].reason;
         }
 
-        // Merge PT/OT Result
+        // Process PT/OT Result
         if (results[1].status === "fulfilled") {
             const ptotData = safeParse(results[1].value);
-            mergedJson = { ...mergedJson, ...ptotData };
+            ptotOutput.value = JSON.stringify(ptotData, null, 4);
         } else {
             console.error("PTOT Failed:", results[1].reason);
+            ptotOutput.value = "Error extracting PT/OT data: " + results[1].reason;
         }
-
-        // 4. Display Combined JSON
-        combinedOutput.value = JSON.stringify(mergedJson, null, 4);
 
         document.getElementById("resultSection").classList.remove("hidden");
         stopProgress();
         showStatus("✅ Analysis Complete", false);
+        document.getElementById("inputSection").style.display = "none";
+
 
     } catch (err) {
         console.error(err);
@@ -485,7 +502,7 @@ async function startAnalysis() {
    ========================================================= */
 async function runOasisExtraction(fileDataArray) {
     const prompt = `
-    You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF/Document.
+    You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
     VISUAL INSTRUCTIONS
     This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
@@ -844,8 +861,25 @@ async function callGeminiProVision(promptText, fileDataArray) {
    SAVE LOGIC (SINGLE API CALL)
    ========================================================= */
 async function finalizeSave() {
+    // hide this div inputSection 
+    
     const saveBtn = document.getElementById("saveBtn");
-    const combinedData = document.getElementById("combinedOutput").value;
+    const oasisStr = document.getElementById("oasisOutput").value;
+    const ptotStr = document.getElementById("ptotOutput").value;
+
+    let combinedData = {};
+
+    try {
+        const oasisJson = oasisStr ? JSON.parse(oasisStr) : {};
+        const ptotJson = ptotStr ? JSON.parse(ptotStr) : {};
+        combinedData = { ...oasisJson, ...ptotJson };
+    } catch (e) {
+        showStatus("❌ Invalid JSON in output boxes. Please check syntax.", true);
+        return;
+    }
+    
+    // Convert back to string for sending
+    const combinedDataStr = JSON.stringify(combinedData);
 
     if(!CHART_ID) {
         showStatus("❌ Error: Missing Salesforce Chart ID.", true);
@@ -862,10 +896,10 @@ async function finalizeSave() {
         }
 
         // 2. Save Data (SINGLE Call for both OASIS and PT/OT keys)
-        if (combinedData && combinedData.length > 5) {
+        if (combinedDataStr && combinedDataStr.length > 5) {
             await sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
                 chartId: CHART_ID,
-                rawJson: combinedData, // Contains merged keys
+                rawJson: combinedDataStr, // Contains merged keys
                 aiTimeSeconds: CACHED_AI_TIME
             });
         }
@@ -928,5 +962,3 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
-
-
