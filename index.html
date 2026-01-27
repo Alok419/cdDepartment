@@ -491,9 +491,10 @@ async function runOasisExtraction(fileDataArray) {
     You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
     VISUAL INSTRUCTIONS
-    This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
-    Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or (◉) circled numbers.
-    Ignore unchecked boxes (☐, [ ],()).
+   - This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
+   - Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or (◉) circled numbers.
+   - Ignore unchecked boxes (☐, [ ],()).
+    - If a row has no marks, return "N/A". Do NOT guess or default to "0".
 
     DATA FORMATTING RULES (CRITICAL)
     - NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
@@ -501,7 +502,7 @@ async function runOasisExtraction(fileDataArray) {
     - ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
     - MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
     - DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
-    - MISSING DATA: If an item is not found, not visually marked, or blank, you MUST return "N/A". Do NOT return null, empty strings, or exclude the key.
+    - MISSING DATA: If an item is not found, not visually marked, or blank, you MUST return "N/A". Do NOT return null, empty strings, or exclude the key.(This is mandatory).
 
     SECTION SPECIFIC RULES
     -M-Items & B/D-Items:
@@ -939,4 +940,5 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
 
