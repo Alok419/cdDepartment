@@ -275,7 +275,7 @@
         <div id="loadingMessage">Connecting to Salesforce...</div>
     </div>
 
-<script>
+<<script>
 /* =========================================================
    GLOBAL CONTEXT & CONFIG
    ========================================================= */
@@ -287,7 +287,7 @@ let CACHED_AI_TIME = 0;
 
 let selectedFiles = [];
 
-
+// Using Gemini 1.5 Pro
 const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
 /* =========================================================
@@ -381,7 +381,6 @@ function startProgress() {
 function stopProgress() {
     clearInterval(progressTimer);
     updateProgress(100, "Complete");
-   
 }
 
 function updateProgress(val, text) {
@@ -412,22 +411,27 @@ async function startAnalysis() {
 
         const startTime = Date.now();
 
-        // 1. Read Files
+        // 1. Read Files (Standard read)
         updateProgress(10, "Reading files...");
         const fileDataArray = await Promise.all(selectedFiles.map(readFileAsBase64));
 
-        // 2. Parallel AI Calls (Separate Prompts)
-        updateProgress(30, "AI Analysis Running (OASIS + PT/OT)...");
+        // 2. Upload Files to Gemini to get File URIs (NEW STEP)
+        updateProgress(20, "Uploading to AI Server...");
+        // Convert base64 back to blob and upload via File API
+        const uploadedFiles = await Promise.all(fileDataArray.map(uploadToGemini));
 
-        // Run both OASIS and PT/OT extraction in parallel
+        // 3. Parallel AI Calls (Separate Prompts using URIs)
+        updateProgress(40, "AI Analysis Running (OASIS + PT/OT)...");
+
+        // Run both OASIS and PT/OT extraction in parallel passing the URIs
         const results = await Promise.allSettled([
-            runOasisExtraction(fileDataArray),
-            runPtOtExtraction(fileDataArray)
+            runOasisExtraction(uploadedFiles),
+            runPtOtExtraction(uploadedFiles)
         ]);
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
-        // 3. Process & Merge Results
+        // 4. Process & Merge Results
         updateProgress(80, "Merging Data...");
         
         let mergedJson = {};
@@ -464,7 +468,7 @@ async function startAnalysis() {
             console.error("PTOT Failed:", results[1].reason);
         }
 
-        // 4. Display Combined JSON
+        // 5. Display Combined JSON
         combinedOutput.value = JSON.stringify(mergedJson, null, 4);
 
         document.getElementById("resultSection").classList.remove("hidden");
@@ -484,11 +488,65 @@ async function startAnalysis() {
 }
 
 /* =========================================================
+   HELPER: UPLOAD TO GEMINI (FILE API)
+   ========================================================= */
+async function uploadToGemini(fileObj) {
+    // 1. Convert Base64 back to Blob for upload
+    const byteCharacters = atob(fileObj.base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: fileObj.mimeType });
+
+    // 2. Start Resumable Upload Session
+    const uploadUrlResp = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: {
+            'X-Goog-Upload-Protocol': 'resumable',
+            'X-Goog-Upload-Command': 'start',
+            'X-Goog-Upload-Header-Content-Length': blob.size,
+            'X-Goog-Upload-Header-Content-Type': fileObj.mimeType,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ file: { display_name: fileObj.name } })
+    });
+
+    if (!uploadUrlResp.ok) throw new Error("Failed to initialize upload: " + uploadUrlResp.statusText);
+    
+    // Get the actual upload URL from headers
+    const uploadUrl = uploadUrlResp.headers.get('x-goog-upload-url');
+
+    // 3. Upload the actual bytes
+    const uploadResp = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Length': blob.size,
+            'X-Goog-Upload-Offset': '0',
+            'X-Goog-Upload-Command': 'upload, finalize'
+        },
+        body: blob
+    });
+
+    if (!uploadResp.ok) throw new Error("Failed to upload file bytes");
+
+    const fileInfo = await uploadResp.json();
+    
+    // Return the object structure expected by the prompt functions
+    return {
+        mimeType: fileObj.mimeType,
+        fileUri: fileInfo.file.uri 
+    };
+}
+
+
+/* =========================================================
    AI FLOW 1: OASIS EXTRACTION
    ========================================================= */
-async function runOasisExtraction(fileDataArray) {
+async function runOasisExtraction(uploadedFilesArray) {
     const prompt = `
-    You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
+     You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
     VISUAL INSTRUCTIONS
    - This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
@@ -747,13 +805,13 @@ async function runOasisExtraction(fileDataArray) {
     - If nothing applies, return "N/A".
     `;
 
-    return await callGeminiProVision(prompt, fileDataArray);
+    return await callGeminiProVision(prompt, uploadedFilesArray);
 }
 
 /* =========================================================
    AI FLOW 2: PT/OT EXTRACTION
    ========================================================= */
-async function runPtOtExtraction(fileDataArray) {
+async function runPtOtExtraction(uploadedFilesArray) {
     const prompt = `
     Role - You are an expert Medical Data Encoder.
 
@@ -885,16 +943,23 @@ async function runPtOtExtraction(fileDataArray) {
      Other__c → Look for Unlevel or Uneven Surfaces (Level / Unlevel / Uneven / Uneven surface / Walk on uneven surfaces and Populate this field using the same Value Mapping Logic defined above.)
     `;
 
-    return await callGeminiProVision(prompt, fileDataArray);
+    return await callGeminiProVision(prompt, uploadedFilesArray);
 }
 
 /* =========================================================
-   GEMINI CALLER
+   GEMINI CALLER (UPDATED FOR FILE URI)
    ========================================================= */
-async function callGeminiProVision(promptText, fileDataArray) {
+async function callGeminiProVision(promptText, uploadedFilesArray) {
     const parts = [{ text: promptText }];
-    fileDataArray.forEach(f => {
-        parts.push({ inlineData: { mimeType: f.mimeType, data: f.base64 } });
+    
+    // Updated: Use fileData with fileUri instead of inlineData
+    uploadedFilesArray.forEach(f => {
+        parts.push({ 
+            fileData: { 
+                mimeType: f.mimeType, 
+                fileUri: f.fileUri 
+            } 
+        });
     });
 
     const response = await fetch(`${GEMINI_PRO_ENDPOINT}?key=${GEMINI_API_KEY}`, {
@@ -1022,6 +1087,7 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
 
 
 
