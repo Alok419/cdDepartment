@@ -235,7 +235,7 @@
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI Oasis Clinical Analyzer</h2>
+            <h2 class="main-title">AI Oasis Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -694,6 +694,11 @@ async function runPtOtExtraction(fileDataArray) {
 
     Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
+    CRITICAL INSTRUCTION: 
+    1. Do NOT guess information. 
+    2. If the document is NOT a specific PT or OT evaluation (e.g., if it is ONLY an OASIS form), you MUST return an empty JSON object: {}.
+    3. Do NOT use data from OASIS M-items or GG-items to populate PT/OT specific fields unless they are explicitly found in a separate PT/OT Evaluation section.
+
     1. Value Mapping Logic (Strict)
 
     You must convert the raw text found in the document (e.g., "Min A", "04", "CGA") into the exact string values listed in the Target Output (Required Value) column below.
@@ -832,6 +837,11 @@ async function callGeminiProVision(promptText, fileDataArray) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             contents: [{ parts: parts }],
+            generationConfig: {
+                temperature: 0.0,       // 0.0 = Deterministic (No creativity/hallucinations)
+                topK: 1,                // Pick only the most likely token
+                responseMimeType: "application/json" // Force strict JSON output
+            },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
                 { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
