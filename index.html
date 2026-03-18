@@ -235,7 +235,7 @@
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI Oasisess Analyzer</h2>
+            <h2 class="main-title">AI Oasiseswsss Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -806,6 +806,15 @@ async function runOasisExtraction(uploadedFilesArray) {
     DME — VALID VALUES
     Bedside Commode, Cane, Elevated Toilet Seat, Grab Bars, Hospital Bed, Nebulizer, Oxygen, Tub/Shower Bench, Walker, Wheelchair, Other, Bed Overlay, Brace/Orthotics, Crutches, Hoyer Lift, Respiratory Equipment, Slider Board, Trapeze, No-DME, CPAP Machine, Diabetic Supplies, Vital Sign Equipment, Removable Shower Head, Scooter, Wound Care Supplies, Alcohol/Hand Sanitizer, Lab Supplies, PPE
 
+    M1340_Surgical_wound__c — VALID VALUES
+    If M1340 is 1, return EXACTLY: "1 - Yes, the pateint has at least one observable surgical wound."
+    If M1340 is 2, return EXACTLY: "2 - Surgical wound but not observable due to non-removable dressing/device."
+
+    M1340_Stasis_Ulcer__c (Mapped from M1330) — VALID VALUES
+    If M1330 is 1, return EXACTLY: "1 - Yes, the patient has both observable and unobservable stasis ulcers"
+    If M1330 is 2, return EXACTLY: "2 - Yes, the patient has observable stasis ulcers only"
+    If M1330 is 3, return EXACTLY: "3 - Yes, patient has unobservable stasis ulcers only"
+    
     OUTPUT ENFORCEMENT
     - Output ONLY valid picklist labels.
     - Multiple values must be comma-separated.
