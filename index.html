@@ -469,6 +469,8 @@ async function startAnalysis() {
             console.error("PTOT Failed:", results[1].reason);
         }
 
+        console.log("🟪 [FINAL MERGED JSON DATA]:", mergedJson);
+
         // 5. Display Combined JSON
         combinedOutput.value = JSON.stringify(mergedJson, null, 4);
 
