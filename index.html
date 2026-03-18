@@ -605,16 +605,19 @@ async function runOasisExtraction(uploadedFilesArray) {
     
     --- SKIN CONDITIONS ---
     - M1306 (Unhealed Pressure Ulcer/Injury)
-    - M1311 A1 (Number of Stage 2 Pressure Ulcers)
-    - M1311 B1 (Number of Stage 3 Pressure Ulcers)
-    - M1311 C1 (Number of Stage 4 Pressure Ulcers)
-    - M1311 D1 (Unstageable - Non-removable dressing/device)
-    - M1311 E1 (Unstageable - Slough/eschar)
-    - M1311 F1 (Unstageable - Deep tissue injury)
     - M1322 (Current Number of Stage 1 Pressure Injuries)
     - M1324 (Stage of Most Problematic Unhealed Pressure Ulcer)
     - M1330 (Does this patient have a Stasis Ulcer?)
     - M1340 (Does this patient have a Surgical Wound?)
+
+    --- M1311 PRESSURE ULCERS (NUMBER FIELDS) ---
+    - Look for a table or list containing M1311 items (A1 through F1). Extract the exact number written in the box or "Number of Ulcers" column for each.
+    - M1311 A1 (Number of Stage 2 Pressure Ulcers) -> Return as an integer (e.g., 0, 1, 2). If blank, return 0.
+    - M1311 B1 (Number of Stage 3 Pressure Ulcers) -> Return as an integer. If blank, return 0.
+    - M1311 C1 (Number of Stage 4 Pressure Ulcers) -> Return as an integer. If blank, return 0.
+    - M1311 D1 (Unstageable - Non-removable dressing/device) -> Return as an integer. If blank, return 0.
+    - M1311 E1 (Unstageable - Slough/eschar) -> Return as an integer. If blank, return 0.
+    - M1311 F1 (Unstageable - Deep tissue injury) -> Return as an integer. If blank, return 0.
 
     --- BLADDER AND BOWEL ---
     - M1600 (Has this patient been treated for a Urinary Tract Infection?)
@@ -806,6 +809,10 @@ async function runOasisExtraction(uploadedFilesArray) {
     DME — VALID VALUES
     Bedside Commode, Cane, Elevated Toilet Seat, Grab Bars, Hospital Bed, Nebulizer, Oxygen, Tub/Shower Bench, Walker, Wheelchair, Other, Bed Overlay, Brace/Orthotics, Crutches, Hoyer Lift, Respiratory Equipment, Slider Board, Trapeze, No-DME, CPAP Machine, Diabetic Supplies, Vital Sign Equipment, Removable Shower Head, Scooter, Wound Care Supplies, Alcohol/Hand Sanitizer, Lab Supplies, PPE
 
+    M1306_Unhealed_PU_Injury_at_Stage_2__c (Mapped from M1306) — VALID VALUES
+    If M1306 is 0, return EXACTLY: "0 - No"
+    If M1306 is 1, return EXACTLY: "1 - Yes"
+    
     M1340_Surgical_wound__c — VALID VALUES
     If M1340 is 1, return EXACTLY: "1 - Yes, the pateint has at least one observable surgical wound."
     If M1340 is 2, return EXACTLY: "2 - Surgical wound but not observable due to non-removable dressing/device."
