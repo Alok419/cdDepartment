@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,7 +235,7 @@
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI New Oasis Analyzer</h2>
+            <h2 class="main-title">AI Oasisess Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -275,7 +276,7 @@
         <div id="loadingMessage">Connecting to Salesforce...</div>
     </div>
 
-<<script>
+<script>
 /* =========================================================
    GLOBAL CONTEXT & CONFIG
    ========================================================= */
@@ -287,7 +288,7 @@ let CACHED_AI_TIME = 0;
 
 let selectedFiles = [];
 
-// Using Gemini 1.5 Pro
+
 const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent";
 
 /* =========================================================
@@ -544,6 +545,9 @@ async function uploadToGemini(fileObj) {
 /* =========================================================
    AI FLOW 1: OASIS EXTRACTION
    ========================================================= */
+/* =========================================================
+   AI FLOW 1: OASIS EXTRACTION
+   ========================================================= */
 async function runOasisExtraction(uploadedFilesArray) {
     const prompt = `
      You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
@@ -555,19 +559,19 @@ async function runOasisExtraction(uploadedFilesArray) {
 
     DATA FORMATTING RULES (CRITICAL)
     - NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
-    - ONLY CODES: For M-Items and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
-    - MULTI-SELECT: If multiple boxes are checked, separate with commas (e.g., "1, 2").
+    - ONLY CODES: For M-Items, B-Items, J-Items, and GG-Items, return ONLY the numeric code (e.g., "1", "06"), do NOT return the text description.
+    - MULTI-SELECT: If multiple boxes are checked for non-boolean arrays, separate with commas (e.g., "1, 2").
     - DATES: Extract dates strictly in YYYY-MM-DD format. If a date is missing, return "N/A".
-    - MISSING DATA: If an item is not found, not visually marked, or blank, you MUST return "N/A". Do NOT return null, empty strings, or exclude the key.
+    - MISSING DATA: If an item is not found, not visually marked, or blank, you MUST return "N/A" for string fields, and false for boolean fields. Do NOT return null, empty strings, or exclude the key.
 
     SECTION SPECIFIC RULES
-    -M-Items & B/D-Items:
+    -M-Items & B/D/J/K-Items:
     - Find the question ID (e.g., M1830, B1000).
     - Find the option that is VISUALLY marked.
     - Extract the numeric code associated with that option.
 
     ITEMS TO EXTRACT
-    - If an item is not found or not visually marked, return "N/A".
+    - If an item is not found or not visually marked, return "N/A" (or false for checkboxes).
 
     --- CHART DATA ---
     - M0030 (Start of Care Date) -> Return YYYY-MM-DD
@@ -579,17 +583,16 @@ async function runOasisExtraction(uploadedFilesArray) {
     - M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT).
 
     --- PLAN OF CARE / ORDERS ---
-    - Activities Permitted:
-    Look for the header "Activities Permitted".
-    Return a comma-separated list of EVERY checkbox that is visually marked.
-    - DME:
-    Look for the header "DME".
-    Return a comma-separated list of EVERY checkbox that is visually marked.
+    - Activities Permitted: Look for the header "Activities Permitted". Return a comma-separated list of EVERY checkbox that is visually marked.
+    - DME: Look for the header "DME". Return a comma-separated list of EVERY checkbox that is visually marked.
 
-    --- OASIS ITEMS ---
+    --- OASIS ITEMS (SENSORY, COGNITIVE, ADLs, ETC) ---
     - M0090 (Date Assessment Completed) -> Return YYYY-MM-DD
     - M1000 (Inpatient Discharge History - list all checked numbers 1-7)
+    - M1028 (Active Diagnoses - Comorbidities)
     - M1033 (Risk for Hospitalization – list all checked numbers)
+    - M1100 (Patient Living Situation)
+    - B0200 (Hearing)
     - B1000 (Vision)
     - M1400 (Dyspnea)
     - M1700 (Cognitive Functioning)
@@ -597,6 +600,27 @@ async function runOasisExtraction(uploadedFilesArray) {
     - M1720 (When Anxious)
     - M1740 (Cognitive/Behavioral Symptoms – list all checked numbers)
     - M1745 (Disruptive Behavior)
+    
+    --- SKIN CONDITIONS ---
+    - M1306 (Unhealed Pressure Ulcer/Injury)
+    - M1311 A1 (Number of Stage 2 Pressure Ulcers)
+    - M1311 B1 (Number of Stage 3 Pressure Ulcers)
+    - M1311 C1 (Number of Stage 4 Pressure Ulcers)
+    - M1311 D1 (Unstageable - Non-removable dressing/device)
+    - M1311 E1 (Unstageable - Slough/eschar)
+    - M1311 F1 (Unstageable - Deep tissue injury)
+    - M1322 (Current Number of Stage 1 Pressure Injuries)
+    - M1324 (Stage of Most Problematic Unhealed Pressure Ulcer)
+    - M1330 (Does this patient have a Stasis Ulcer?)
+    - M1340 (Does this patient have a Surgical Wound?)
+
+    --- BLADDER AND BOWEL ---
+    - M1600 (Has this patient been treated for a Urinary Tract Infection?)
+    - M1610 (Urinary Incontinence or Urinary Catheter Presence)
+    - M1620 (Bowel Incontinence Frequency)
+    - M1630 (Ostomy for Bowel Elimination)
+
+    --- ADLs ---
     - M1800 (Grooming)
     - M1810 (Upper Body Dressing)
     - M1820 (Lower Body Dressing)
@@ -607,7 +631,27 @@ async function runOasisExtraction(uploadedFilesArray) {
     - M1860 (Ambulation)
     - M1870 (Feeding) 
     - M2020 (Oral Medications)
+    
+    --- PAIN & NUTRITION ---
+    - J0510 (Pain Effect on Sleep)
     - J0530 (Pain Interference with Activities)
+    - K0520A (Nutritional Approaches - Parenteral/IV feeding) -> Return "Checked" or "N/A"
+    - K0520B (Nutritional Approaches - Feeding tube) -> Return "Checked" or "N/A"
+
+    --- HIGH-RISK DRUGS & SPECIAL TREATMENTS (BOOLEAN CHECKBOXES) ---
+    - N0415 A (Antipsychotic) -> Return boolean true if marked, false if not.
+    - N0415 E (Anticoagulant) -> Return boolean true if marked, false if not.
+    - N0415 F (Antibiotic) -> Return boolean true if marked, false if not.
+    - N0415 H (Opioid) -> Return boolean true if marked, false if not.
+    - N0415 I (Antiplatelet) -> Return boolean true if marked, false if not.
+    - N0415 J (Hypoglycemic) -> Return boolean true if marked, false if not.
+    
+    - O0110 A (IV Chemotherapy) -> Return boolean true if marked, false if not.
+    - O0110 C (Oxygen therapy) -> Return boolean true if marked, false if not.
+    - O0110 E (Tracheostomy) -> Return boolean true if marked, false if not.
+    - O0110 F (Invasive Mechanical Ventilator) -> Return boolean true if marked, false if not.
+    - O0110 G (Non-invasive Mechanical Ventilator) -> Return boolean true if marked, false if not.
+    - O0110 J (Dialysis) -> Return boolean true if marked, false if not.
 
     --- GG ITEMS (SELF-CARE & MOBILITY) ---
     - Extract the "SOC/ROC Performance" code (e.g., 06, 05, 04, 03, 02, 01, 07, 09, 10, 88) for the following items:
@@ -641,6 +685,7 @@ async function runOasisExtraction(uploadedFilesArray) {
     --- SALESFORCE OUTPUT REQUIREMENT (MANDATORY) ---
     - You must identify values using the OASIS codes above, but the FINAL OUTPUT must use the specific JSON keys below.
     - Use this mapping EXACTLY:
+    
     - SOC_Date -> M0030 (YYYY-MM-DD)
     - ROC_Date -> M0032 (YYYY-MM-DD)
     - Zip_Code -> M0060 (First 5 digits only)
@@ -652,7 +697,29 @@ async function runOasisExtraction(uploadedFilesArray) {
     - M1000_Discharge_History -> M1000 (Comma separated list of codes)
     - Activities Permitted -> Activities_Permitted__c
     - DME -> DME_Supplies__c
+    
+    - B0200 -> B0200_Hearing__c
     - B1000 -> M1200_Vision__c
+    - M1028 -> M1028_Active_Diagnosis__c
+    - M1100 -> M1100_Patient_living_status__c
+    
+    - M1306 -> M1306_Unhealed_PU_Injury_at_Stage_2__c
+    - M1311 A1 -> M1311_A1_Unhealed_PU_Injuries_Stage_2__c
+    - M1311 B1 -> M1311_B1_Unhealed_PU_Injuries_Stage_3__c
+    - M1311 C1 -> M1311_C1_Unhealed_PU_Injuries_Stage_4__c
+    - M1311 D1 -> M1311_D1_PU_Nonremovable_dressing__c
+    - M1311 E1 -> M1311_E1_PU_Slough_and_or_Eschar__c
+    - M1311 F1 -> M1311_F1_PU_DTI__c
+    - M1322 -> M1322_Current_Number_of_Stage_1_PU__c
+    - M1324 -> M1324_Stage_Problematic_Ulcer__c
+    - M1330 -> M1340_Stasis_Ulcer__c
+    - M1340 -> M1340_Surgical_wound__c
+    
+    - M1600 -> M1600_UTI_Treated_in_the_past_14_days__c
+    - M1610 -> M1610_Incontinence_Catheter_Presence__c
+    - M1620 -> M1620_Bowel_Incontinence_Frequency__c
+    - M1630 -> M1630_Ostomy_for_Bowel_Elimination__c
+
     - D0150 Row A Col 1 -> Little_interest_symptom_presence__c
     - D0150 Row A Col 2 -> Little_interest_symptom_frequency__c
     - D0150 Row B Col 1 -> Feeling_down_symptom_presence__c
@@ -674,7 +741,25 @@ async function runOasisExtraction(uploadedFilesArray) {
     - M1860 -> M1860_Ambulation_Locomotion_Actual__c
     - M1870 -> M1870_Feeding_Actual__c
     - M2020 -> M2020_Oral_Medications_Actual__c
+    
+    - J0510 -> J0510_Pain_Effect_on_Sleep__c
     - J0530 -> J0530_Pain_Interference_with_Day_to_Da__c
+    - K0520A -> K0520A_Parenteral_IV_feeding__c
+    - K0520B -> K0520B_Feeding_tube_NG_PEG__c
+
+    - N0415 A -> N0415_A_Antipsychotic__c
+    - N0415 E -> N0415_E_Anticoagulant__c
+    - N0415 F -> N0415_F_Antibiotic__c
+    - N0415 H -> N0415_H_Opioid__c
+    - N0415 I -> N0415_I_Antiplatelet__c
+    - N0415 J -> N0415_J_Hypoglycemic__c
+
+    - O0110 A -> O0110_A_IV_Chemotherapy__c
+    - O0110 C -> O0110_C_Oxygen_therapy__c
+    - O0110 E -> O0110_E_Tracheostomy__c
+    - O0110 F -> O0110_F_Invasive_Mechanical_Ventilator__c
+    - O0110 G -> O0110_G_Non_invasive_Mechanical_Ventila__c
+    - O0110 J -> O0110_J_Dialysis__c
 
     - GG0130 B -> GG0130_B_Oral_Hygiene__c
     - GG0130 C -> GG0130_C_Toileting_Hygiene__c
@@ -702,9 +787,8 @@ async function runOasisExtraction(uploadedFilesArray) {
     - Return ONLY valid JSON.
     - Return a SINGLE flat JSON object.
     - Keys MUST be the specific keys listed above.
-    - Values MUST be strings.
-    - Use comma-separated values for multi-select items.
-    - If an item is not found or not marked, return "N/A".
+    - Values MUST be strings, EXCEPT for Checkbox items (like N0415 and O0110) which MUST be native boolean true or false (no quotes).
+    - Use comma-separated values for multi-select string items.
     - Do NOT include markdown, backticks, explanations, or extra text.
     - Do NOT include OASIS codes in the output keys.
     - Do NOT add or remove keys.
@@ -723,7 +807,7 @@ async function runOasisExtraction(uploadedFilesArray) {
     OUTPUT ENFORCEMENT
     - Output ONLY valid picklist labels.
     - Multiple values must be comma-separated.
-    - If nothing applies, return "N/A".
+    - If nothing applies, return "N/A" (or false for booleans).
     `;
 
     return await callGeminiProVision(prompt, uploadedFilesArray);
@@ -1008,9 +1092,4 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
-
-
-
-
-
 
