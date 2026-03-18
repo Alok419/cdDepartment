@@ -235,7 +235,7 @@
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI Oasisess Analyzer</h2>
+            <h2 class="main-title">AI Oasis Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -800,7 +800,7 @@ async function runOasisExtraction(uploadedFilesArray) {
 
     PICKLIST NORMALIZATION RULES (MANDATORY)
     - Document wording and layouts may vary. Use semantic meaning, not exact text.
-    - Normalize selections to the VALID Salesforce picklist values below.
+    - IMPORTANT: Salesforce picklists are RESTRICTED. You MUST force the semantic meaning of the document into the EXACT VALID Salesforce strings provided below.
     - Return ONLY the exact picklist label.
 
     Activities Permitted — VALID VALUES
@@ -812,7 +812,14 @@ async function runOasisExtraction(uploadedFilesArray) {
     M1306_Unhealed_PU_Injury_at_Stage_2__c (Mapped from M1306) — VALID VALUES
     If M1306 is 0, return EXACTLY: "0 - No"
     If M1306 is 1, return EXACTLY: "1 - Yes"
-    
+
+    M1322_Current_Number_of_Stage_1_PU__c (Mapped from M1322) — VALID VALUES
+    If M1322 is 0, return EXACTLY: "0. Zero"
+    If M1322 is 1, return EXACTLY: "1. One"
+    If M1322 is 2, return EXACTLY: "2. Two"
+    If M1322 is 3, return EXACTLY: "3. Three"
+    If M1322 is 4, return EXACTLY: "4. Four or more"
+
     M1340_Surgical_wound__c — VALID VALUES
     If M1340 is 1, return EXACTLY: "1 - Yes, the pateint has at least one observable surgical wound."
     If M1340 is 2, return EXACTLY: "2 - Surgical wound but not observable due to non-removable dressing/device."
@@ -821,6 +828,29 @@ async function runOasisExtraction(uploadedFilesArray) {
     If M1330 is 1, return EXACTLY: "1 - Yes, the patient has both observable and unobservable stasis ulcers"
     If M1330 is 2, return EXACTLY: "2 - Yes, the patient has observable stasis ulcers only"
     If M1330 is 3, return EXACTLY: "3 - Yes, patient has unobservable stasis ulcers only"
+
+    M1600_UTI_Treated_in_the_past_14_days__c (Mapped from M1600) — VALID VALUES
+    If M1600 is 0, return EXACTLY: "0 - No"
+    If M1600 is 1, return EXACTLY: "1 - Yes"
+    If M1600 is NA or not applicable, return EXACTLY: "NA - Patient on prophylactic treatment"
+
+    M1610_Incontinence_Catheter_Presence__c (Mapped from M1610) — VALID VALUES
+    If M1610 is 0, return EXACTLY: "0 - No incontinence or catheter"
+    If M1610 is 1, return EXACTLY: "1 - Patient is incontinent"
+    If M1610 is 2, return EXACTLY: "2 - Patient requires a urinary catheter"
+
+    M1620_Bowel_Incontinence_Frequency__c (Mapped from M1620) — VALID VALUES
+    If M1620 is 0, return EXACTLY: "0 - Very rarely or never has bowel incontinence"
+    If M1620 is 1, return EXACTLY: "1 - less than once weekly"
+    If M1620 is 2, return EXACTLY: "2 - One to three times weekly"
+    If M1620 is 3, return EXACTLY: "3 - Four to six times weekly"
+    If M1620 is 4, return EXACTLY: "4 - On a daily basis"
+    If M1620 is 5, return EXACTLY: "5 - More often than once daily"
+
+    M1630_Ostomy_for_Bowel_Elimination__c (Mapped from M1630) — VALID VALUES
+    If M1630 is 0, return EXACTLY: "0 - Patient does not have an ostomy for bowel elimination."
+    If M1630 is 1, return EXACTLY: "1 - Patient's ostomy was not related to an inpatient stay and did not necessitate a change in the medical treatment regimen"
+    If M1630 is 2, return EXACTLY: "2 - The ostomy was related to an inpatient stay or necessitated a change in medical or treatment regimen."
     
     OUTPUT ENFORCEMENT
     - Output ONLY valid picklist labels.
