@@ -190,6 +190,74 @@
             outline: none;
         }
 
+        .result-panel {
+            background: #06141c;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+
+        .result-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .result-panel-title {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #d6eaff;
+        }
+
+        .result-panel-subtitle {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .result-item {
+            background: #0a1b25;
+            border: 1px solid #123246;
+            border-radius: 10px;
+            padding: 12px;
+        }
+
+        .result-key {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #7abaff;
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+
+        .result-value {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #f4fbff;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .result-empty {
+            border: 1px dashed #355a74;
+            border-radius: 10px;
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            background: #07131b;
+        }
+
         /* --- PROGRESS BAR --- */
         #progressWrapper {
             margin-top: 20px;
@@ -265,7 +333,15 @@
             </div>
 
             <div id="resultSection" class="hidden" style="margin-top: 25px;">
-                <p style="font-size:12px; color:#888; margin-bottom: 5px; display:none;">Combined Extracted Data (OASIS + PT/OT)</p>
+                <div class="result-panel">
+                    <div class="result-panel-header">
+                        <div>
+                            <p class="result-panel-title">Extracted Output</p>
+                            <div class="result-panel-subtitle">Formatted AI response shown below</div>
+                        </div>
+                    </div>
+                    <div id="formattedOutput" class="result-grid"></div>
+                </div>
                 <textarea id="combinedOutput" style="display:none;" class="result-box" placeholder="Waiting for analysis..."></textarea>
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">Save All Data & Files</button>
             </div>
@@ -362,6 +438,44 @@ function showStatus(msg, isError = false) {
     el.className = "status " + (isError ? "error" : "success");
 }
 
+function formatResultValue(value) {
+    if (value === null || value === undefined || value === "") {
+        return "N/A";
+    }
+    if (typeof value === "boolean") {
+        return value ? "Yes" : "No";
+    }
+    if (Array.isArray(value)) {
+        return value.length ? value.join(", ") : "N/A";
+    }
+    if (typeof value === "object") {
+        return JSON.stringify(value, null, 2);
+    }
+    return String(value);
+}
+
+function renderFormattedOutput(data) {
+    const container = document.getElementById("formattedOutput");
+    container.innerHTML = "";
+
+    const entries = Object.entries(data || {}).filter(([, value]) => value !== null && value !== undefined && value !== "");
+
+    if (entries.length === 0) {
+        container.innerHTML = '<div class="result-empty">No extracted fields were returned for display.</div>';
+        return;
+    }
+
+    entries.forEach(([key, value]) => {
+        const item = document.createElement("div");
+        item.className = "result-item";
+        item.innerHTML = `
+            <div class="result-key">${key}</div>
+            <div class="result-value">${formatResultValue(value)}</div>
+        `;
+        container.appendChild(item);
+    });
+}
+
 /* =========================================================
    PROGRESS LOGIC
    ========================================================= */
@@ -397,9 +511,11 @@ function updateProgress(val, text) {
 async function startAnalysis() {
     const combinedOutput = document.getElementById("combinedOutput");
     const analyzeBtn = document.getElementById("analyzeBtn");
+    const formattedOutput = document.getElementById("formattedOutput");
 
     // Reset UI
     combinedOutput.value = "";
+    formattedOutput.innerHTML = "";
     currentSessionLogs = [];
     showStatus("");
     document.getElementById("resultSection").classList.add("hidden");
@@ -475,6 +591,7 @@ async function startAnalysis() {
 
         // 5. Display Combined JSON
         combinedOutput.value = JSON.stringify(mergedJson, null, 4);
+        renderFormattedOutput(mergedJson);
 
         document.getElementById("resultSection").classList.remove("hidden");
         stopProgress();
