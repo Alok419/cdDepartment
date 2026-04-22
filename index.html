@@ -275,6 +275,8 @@
             background: linear-gradient(90deg, #4fa3ff, #00d2ff);
             width: 0%;
             transition: width 0.3s ease;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
         }
         .progress-text {
             font-size: 12px;
@@ -486,16 +488,33 @@ function startProgress() {
     document.getElementById("progressWrapper").style.display = "block";
     progressValue = 0;
     updateProgress(0, "Starting...");
-    progressTimer = setInterval(() => {
-        if (progressValue < 90) {
-            progressValue++;
-            updateProgress(progressValue);
+    
+    function simulateProgress() {
+        if (progressValue < 95) {
+            // Random increment: larger at first, tiny at the end
+            let increment = Math.random() * 3 + 1; 
+            if (progressValue > 70) increment = Math.random() * 1.5 + 0.5;
+            if (progressValue > 85) increment = Math.random() * 0.4 + 0.1;
+            
+            progressValue += increment;
+            if (progressValue > 95) progressValue = 95;
+            
+            updateProgress(Math.floor(progressValue));
+            
+            // Random delay: fast at first, slow at the end
+            let nextDelay = Math.random() * 400 + 100;
+            if (progressValue > 70) nextDelay = Math.random() * 800 + 400;
+            if (progressValue > 85) nextDelay = Math.random() * 1500 + 800;
+            
+            progressTimer = setTimeout(simulateProgress, nextDelay);
         }
-    }, 150);
+    }
+    
+    progressTimer = setTimeout(simulateProgress, 200);
 }
 
 function stopProgress() {
-    clearInterval(progressTimer);
+    clearTimeout(progressTimer);
     updateProgress(100, "Complete");
 }
 
@@ -757,8 +776,8 @@ async function runOasisExtraction(uploadedFilesArray) {
       "DME_Supplies__c": "DME checkboxes (Comma separated list of all checked)",
       
       "B0200_Hearing__c": "B0200 Hearing option code",
-      "C0100_Brief_Interview_for_Mental_Status__c": "C0100 Brief Interview for Mental Status option code",
-      "C1310_Signs_and_symptoms_of_Delirium__c": "C1310 Signs and Symptoms of Delirium option code",
+      "C0100_Brief_Interview_for_Mental_Status__c": "C0100 Brief Interview for Mental Status (Return ONLY '0' or '1')",
+      "C1310_Signs_and_symptoms_of_Delirium__c": "C1310 Signs and Symptoms of Delirium (Evaluate all sub-items A-D and return a single overall value: ONLY '0' or '1')",
       "M1200_Vision__c": "B1000 Vision option code",
       "M1028_Active_Diagnosis__c": "M1028 Active Diagnoses - Comorbidities",
       "M1100_Patient_living_status__c": "M1100 Patient Living Situation option code",
@@ -804,7 +823,7 @@ async function runOasisExtraction(uploadedFilesArray) {
       "M2020_Oral_Medications_Actual__c": "M2020 Oral Medications",
       
       "J0510_Pain_Effect_on_Sleep__c": "J0510 Pain Effect on Sleep",
-      "J0520_Pain_Interference_w_Activities__c": "J0520 Pain Interference with Therapeutic Regimen option code",
+      "J0520_Pain_Interference_w_Activities__c": "J0520 Pain Interference with Therapeutic Regimen (Return ONLY '0', '1', '2', '3', '4', or '8')",
       "J0530_Pain_Interference_with_Day_to_Da__c": "J0530 Pain Interference with Activities",
       "K0520A_Parenteral_IV_feeding__c": "K0520A Nutritional Approaches - Parenteral/IV feeding (Return 'Checked' or 'N/A')",
       "K0520B_Feeding_tube_NG_PEG__c": "K0520B Nutritional Approaches - Feeding tube (Return 'Checked' or 'N/A')",
