@@ -190,74 +190,6 @@
             outline: none;
         }
 
-        .result-panel {
-            background: #06141c;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 18px;
-            margin-bottom: 18px;
-        }
-
-        .result-panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-
-        .result-panel-title {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 600;
-            color: #d6eaff;
-        }
-
-        .result-panel-subtitle {
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-
-        .result-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 12px;
-        }
-
-        .result-item {
-            background: #0a1b25;
-            border: 1px solid #123246;
-            border-radius: 10px;
-            padding: 12px;
-        }
-
-        .result-key {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #7abaff;
-            margin-bottom: 6px;
-            word-break: break-word;
-        }
-
-        .result-value {
-            font-size: 14px;
-            line-height: 1.5;
-            color: #f4fbff;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        .result-empty {
-            border: 1px dashed #355a74;
-            border-radius: 10px;
-            padding: 24px;
-            text-align: center;
-            color: var(--text-muted);
-            background: #07131b;
-        }
-
         /* --- PROGRESS BAR --- */
         #progressWrapper {
             margin-top: 20px;
@@ -275,8 +207,6 @@
             background: linear-gradient(90deg, #4fa3ff, #00d2ff);
             width: 0%;
             transition: width 0.3s ease;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 210, 255, 0.4);
         }
         .progress-text {
             font-size: 12px;
@@ -335,15 +265,7 @@
             </div>
 
             <div id="resultSection" class="hidden" style="margin-top: 25px;">
-                <div class="result-panel">
-                    <div class="result-panel-header">
-                        <div>
-                            <p class="result-panel-title">Extracted Output</p>
-                            <div class="result-panel-subtitle">Formatted AI response shown below</div>
-                        </div>
-                    </div>
-                    <div id="formattedOutput" class="result-grid"></div>
-                </div>
+                <p style="font-size:12px; color:#888; margin-bottom: 5px; display:none;">Combined Extracted Data (OASIS + PT/OT)</p>
                 <textarea id="combinedOutput" style="display:none;" class="result-box" placeholder="Waiting for analysis..."></textarea>
                 <button id="saveBtn" class="save-btn" onclick="finalizeSave()">Save All Data & Files</button>
             </div>
@@ -427,7 +349,7 @@ function renderFileList() {
         const item = document.createElement("div");
         item.className = "file-item";
         item.innerHTML = `
-            <span class="file-name" title="${file.name}">📄 ${file.name}</span>
+            <span class="file-name">📄 ${file.name}</span>
             <button class="remove-btn" onclick="removeFile(${index})">×</button>
         `;
         container.appendChild(item);
@@ -440,44 +362,6 @@ function showStatus(msg, isError = false) {
     el.className = "status " + (isError ? "error" : "success");
 }
 
-function formatResultValue(value) {
-    if (value === null || value === undefined || value === "") {
-        return "N/A";
-    }
-    if (typeof value === "boolean") {
-        return value ? "Yes" : "No";
-    }
-    if (Array.isArray(value)) {
-        return value.length ? value.join(", ") : "N/A";
-    }
-    if (typeof value === "object") {
-        return JSON.stringify(value, null, 2);
-    }
-    return String(value);
-}
-
-function renderFormattedOutput(data) {
-    const container = document.getElementById("formattedOutput");
-    container.innerHTML = "";
-
-    const entries = Object.entries(data || {}).filter(([, value]) => value !== null && value !== undefined && value !== "");
-
-    if (entries.length === 0) {
-        container.innerHTML = '<div class="result-empty">No extracted fields were returned for display.</div>';
-        return;
-    }
-
-    entries.forEach(([key, value]) => {
-        const item = document.createElement("div");
-        item.className = "result-item";
-        item.innerHTML = `
-            <div class="result-key">${key}</div>
-            <div class="result-value">${formatResultValue(value)}</div>
-        `;
-        container.appendChild(item);
-    });
-}
-
 /* =========================================================
    PROGRESS LOGIC
    ========================================================= */
@@ -488,33 +372,16 @@ function startProgress() {
     document.getElementById("progressWrapper").style.display = "block";
     progressValue = 0;
     updateProgress(0, "Starting...");
-    
-    function simulateProgress() {
-        if (progressValue < 95) {
-            // Random increment: larger at first, tiny at the end
-            let increment = Math.random() * 3 + 1; 
-            if (progressValue > 70) increment = Math.random() * 1.5 + 0.5;
-            if (progressValue > 85) increment = Math.random() * 0.4 + 0.1;
-            
-            progressValue += increment;
-            if (progressValue > 95) progressValue = 95;
-            
-            updateProgress(Math.floor(progressValue));
-            
-            // Random delay: fast at first, slow at the end
-            let nextDelay = Math.random() * 400 + 100;
-            if (progressValue > 70) nextDelay = Math.random() * 800 + 400;
-            if (progressValue > 85) nextDelay = Math.random() * 1500 + 800;
-            
-            progressTimer = setTimeout(simulateProgress, nextDelay);
+    progressTimer = setInterval(() => {
+        if (progressValue < 90) {
+            progressValue++;
+            updateProgress(progressValue);
         }
-    }
-    
-    progressTimer = setTimeout(simulateProgress, 200);
+    }, 150);
 }
 
 function stopProgress() {
-    clearTimeout(progressTimer);
+    clearInterval(progressTimer);
     updateProgress(100, "Complete");
 }
 
@@ -530,11 +397,9 @@ function updateProgress(val, text) {
 async function startAnalysis() {
     const combinedOutput = document.getElementById("combinedOutput");
     const analyzeBtn = document.getElementById("analyzeBtn");
-    const formattedOutput = document.getElementById("formattedOutput");
 
     // Reset UI
     combinedOutput.value = "";
-    formattedOutput.innerHTML = "";
     currentSessionLogs = [];
     showStatus("");
     document.getElementById("resultSection").classList.add("hidden");
@@ -558,47 +423,14 @@ async function startAnalysis() {
         // Convert base64 back to blob and upload via File API
         const uploadedFiles = await Promise.all(fileDataArray.map(uploadToGemini));
 
-        // 3. AI Classification Step
-        updateProgress(30, "AI Classifying Documents...");
-        const classificationMap = await classifyDocuments(uploadedFiles);
-        console.log("🟪 [AI CLASSIFICATION]:", classificationMap);
+        // 3. Parallel AI Calls (Separate Prompts using URIs)
+        updateProgress(40, "AI Analysis Running (OASIS + PT/OT)...");
 
-        // Assign types to uploaded files based on AI classification
-        uploadedFiles.forEach(f => {
-            f.docType = classificationMap[f.name] || 'other';
-        });
-
-        let oasisFiles = uploadedFiles.filter(f => f.docType === 'oasis');
-        const ptotFiles = uploadedFiles.filter(f => f.docType === 'ptot');
-
-        // Fallback: If AI classified everything as "other", try running them as OASIS just in case
-        if (oasisFiles.length === 0 && ptotFiles.length === 0 && uploadedFiles.length > 0) {
-            console.warn("AI didn't find OASIS or PT/OT. Defaulting all to OASIS as fallback.");
-            oasisFiles = uploadedFiles;
-        }
-
-        // 4. Filter Files and Run Parallel AI Calls
-        updateProgress(40, "AI Analysis Running (Extraction)...");
-
-        const promises = [];
-        let oasisPromiseIndex = -1;
-        let ptotPromiseIndex = -1;
-
-        if (oasisFiles.length > 0) {
-            oasisPromiseIndex = promises.length;
-            promises.push(runOasisExtraction(oasisFiles));
-        }
-        
-        if (ptotFiles.length > 0) {
-            ptotPromiseIndex = promises.length;
-            promises.push(runPtOtExtraction(ptotFiles));
-        }
-
-        if (promises.length === 0) {
-            throw new Error("No files selected for analysis.");
-        }
-
-        const results = await Promise.allSettled(promises);
+        // Run both OASIS and PT/OT extraction in parallel passing the URIs
+        const results = await Promise.allSettled([
+            runOasisExtraction(uploadedFiles),
+            runPtOtExtraction(uploadedFiles)
+        ]);
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
 
@@ -624,32 +456,25 @@ async function startAnalysis() {
         };
 
         // Merge OASIS Result
-        if (oasisPromiseIndex !== -1) {
-            const res = results[oasisPromiseIndex];
-            if (res.status === "fulfilled") {
-                const oasisData = safeParse(res.value);
-                mergedJson = { ...mergedJson, ...oasisData };
-            } else {
-                console.error("OASIS Failed:", res.reason);
-            }
+        if (results[0].status === "fulfilled") {
+            const oasisData = safeParse(results[0].value);
+            mergedJson = { ...mergedJson, ...oasisData };
+        } else {
+            console.error("OASIS Failed:", results[0].reason);
         }
 
         // Merge PT/OT Result
-        if (ptotPromiseIndex !== -1) {
-            const res = results[ptotPromiseIndex];
-            if (res.status === "fulfilled") {
-                const ptotData = safeParse(res.value);
-                mergedJson = { ...mergedJson, ...ptotData };
-            } else {
-                console.error("PTOT Failed:", res.reason);
-            }
+        if (results[1].status === "fulfilled") {
+            const ptotData = safeParse(results[1].value);
+            mergedJson = { ...mergedJson, ...ptotData };
+        } else {
+            console.error("PTOT Failed:", results[1].reason);
         }
 
         console.log("🟪 [FINAL MERGED JSON DATA]:", mergedJson);
 
         // 5. Display Combined JSON
         combinedOutput.value = JSON.stringify(mergedJson, null, 4);
-        renderFormattedOutput(mergedJson);
 
         document.getElementById("resultSection").classList.remove("hidden");
         stopProgress();
@@ -716,8 +541,7 @@ async function uploadToGemini(fileObj) {
     // Return the object structure expected by the prompt functions
     return {
         mimeType: fileObj.mimeType,
-        fileUri: fileInfo.file.uri,
-        name: fileObj.name
+        fileUri: fileInfo.file.uri 
     };
 }
 
@@ -732,11 +556,10 @@ async function runOasisExtraction(uploadedFilesArray) {
     const prompt = `
      You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
-    CRITICAL EXTRACTION PROTOCOL (FOR 100% ACCURACY):
-    1. Do NOT guess or infer. Only extract what is visibly marked.
-    2. For checkboxes: Look specifically for ☑, [X], ■, or a circled number ◉. Blank or empty boxes (☐, [ ]) mean FALSE or NOT SELECTED.
-    3. For text/numbers: Extract exactly what is written.
-    4. If a field is blank, crossed out, or not applicable, return "N/A" (or false for booleans). Do NOT return null.
+    VISUAL INSTRUCTIONS
+    This is a visual extraction task. Do not rely solely on text stream order. Look at the layout.
+    Identify selected values by looking for: ☑ (checked box), [X] (marked box), ■ (filled box), or (◉) circled numbers.
+    Ignore unchecked boxes (☐, [ ],()).
 
     DATA FORMATTING RULES (CRITICAL)
     - NO LEADING ZEROS: If a value is "01", return "1". If "02", return "2". (Exception: Return "0" if the value is exactly zero). EXCEPTION FOR GG CODES: For GG items (e.g., GG0130, GG0170), KEEP the leading zero (e.g., return "06", "05", "01").
@@ -751,125 +574,232 @@ async function runOasisExtraction(uploadedFilesArray) {
     - Find the option that is VISUALLY marked.
     - Extract the numeric code associated with that option.
 
-    ICD-10 CODING SUGGESTIONS (MANDATORY)
-    - Based on the clinical conditions identified in the OASIS items and the broader patient details in the document, you MUST act as an expert medical coder and generate the EXACT suggested ICD-10 codes (not broad ranges).
-    - Analyze the M, B, J, and K items along with any free-text clinical notes, active diagnoses, or summaries to identify specific conditions.
-    - Output the most specific and accurate ICD-10 codes possible for the patient's individual scenario. Do NOT use ranges like H90-H94; instead, determine the precise code based on the document's context (e.g., H90.0).
-    - Return these as a comma-separated string under the key "Suggested_ICD_10_Codes__c".
+    ITEMS TO EXTRACT
+    - If an item is not found or not visually marked, return "N/A" (or false for checkboxes).
 
-    REQUIRED JSON SCHEMA & EXTRACTION RULES (MANDATORY)
-    - You MUST return a JSON object with EXACTLY the keys below.
-    - Do NOT skip any keys. You MUST include every key listed. 
-    - If an item is not found, not visually marked, or blank in the document, you MUST return "N/A" for string fields, and false for boolean fields. Do NOT return null, empty strings, or exclude the key.
+    --- CHART DATA ---
+    - M0030 (Start of Care Date) -> Return YYYY-MM-DD
+    - M0032 (Resumption of Care Date) -> Return YYYY-MM-DD
+    - M0060 (Zip Code) -> Return ONLY the first 5 characters. Ignore any suffix.
+    - M0110 (Episode Timing) -> Return code "1" (Early) or "2" (Later)
+    - M1005 (Inpatient Discharge Date) -> Return YYYY-MM-DD
+    - M0069 (Gender) -> Return code "1" (Male) or "2" (Female).
+    - M0080 (Discipline) -> Return code "1" (RN), "2" (PT), "3" (SLP/ST), "4" (OT).
 
-    {
-      "SOC_Date": "M0030 Start of Care Date (YYYY-MM-DD)",
-      "ROC_Date": "M0032 Resumption of Care Date (YYYY-MM-DD)",
-      "Zip_Code": "M0060 Zip Code (First 5 digits only)",
-      "Episode_Timing": "M0110 Episode Timing (Return 1 or 2)",
-      "M0069": "M0069 Gender (1 or 2)",
-      "M0080": "M0080 Discipline (1, 2, 3, or 4)",
-      "Inpatient_Discharge_Date": "M1005 (YYYY-MM-DD)",
-      "M0090_Date_Assessment_Completed": "M0090 (YYYY-MM-DD)",
-      "M1000_Discharge_History": "M1000 (Comma separated list of codes 1-7)",
-      "Activities_Permitted__c": "Activities Permitted checkboxes (Comma separated list of all checked)",
-      "DME_Supplies__c": "DME checkboxes (Comma separated list of all checked)",
-      
-      "B0200_Hearing__c": "B0200 Hearing option code",
-      "C0100_Brief_Interview_for_Mental_Status__c": "C0100 Brief Interview for Mental Status (Return ONLY '0' or '1')",
-      "C1310_Signs_and_symptoms_of_Delirium__c": "C1310 Signs and Symptoms of Delirium (Evaluate all sub-items A-D and return a single overall value: ONLY '0' or '1')",
-      "M1200_Vision__c": "B1000 Vision option code",
-      "M1028_Active_Diagnosis__c": "M1028 Active Diagnoses - Comorbidities",
-      "M1100_Patient_living_status__c": "M1100 Patient Living Situation option code",
-      
-      "M1306_Unhealed_PU_Injury_at_Stage_2__c": "M1306 Unhealed Pressure Ulcer/Injury option code",
-      "M1311_A1_Unhealed_PU_Injuries_Stage_2__c": "M1311 A1 Number of Stage 2 Pressure Ulcers",
-      "M1311_B1_Unhealed_PU_Injuries_Stage_3__c": "M1311 B1 Number of Stage 3 Pressure Ulcers",
-      "M1311_C1_Unhealed_PU_Injuries_Stage_4__c": "M1311 C1 Number of Stage 4 Pressure Ulcers",
-      "M1311_D1_PU_Nonremovable_dressing__c": "M1311 D1 Unstageable - Non-removable dressing/device",
-      "M1311_E1_PU_Slough_and_or_Eschar__c": "M1311 E1 Unstageable - Slough/eschar",
-      "M1311_F1_PU_DTI__c": "M1311 F1 Unstageable - Deep tissue injury",
-      "M1322_Current_Number_of_Stage_1_PU__c": "M1322 Current Number of Stage 1 Pressure Injuries",
-      "M1324_Most_Problematic_Stageable_Unheal__c": "M1324 Stage of Most Problematic Unhealed Pressure Ulcer",
-      "M1340_Stasis_Ulcer__c": "M1330 Does this patient have a Stasis Ulcer?",
-      "M1340_Surgical_wound__c": "M1340 Does this patient have a Surgical Wound?",
-      
-      "M1600_UTI_Treated_in_the_past_14_days__c": "M1600 Treated for a UTI in past 14 days",
-      "M1610_Incontinence_Catheter_Presence__c": "M1610 Urinary Incontinence or Urinary Catheter Presence",
-      "M1620_Bowel_Incontinence_Frequency__c": "M1620 Bowel Incontinence Frequency",
-      "M1630_Ostomy_for_Bowel_Elimination__c": "M1630 Ostomy for Bowel Elimination",
-      
-      "Little_interest_symptom_presence__c": "D0150 Row A Col 1",
-      "Little_interest_symptom_frequency__c": "D0150 Row A Col 2",
-      "Feeling_down_symptom_presence__c": "D0150 Row B Col 1",
-      "Feeling_down_symptom_frequency__c": "D0150 Row B Col 2",
-      
-      "Functional_Points_M1033__c": "M1033 Risk for Hospitalization (comma separated)",
-      "M1400_SOB_Actual__c": "M1400 Dyspnea",
-      "M1700_Cognitive_Functioning__c": "M1700 Cognitive Functioning",
-      "M1710_When_Confused__c": "M1710 When Confused",
-      "M1720_When_Anxious__c": "M1720 When Anxious",
-      "M1740_Cognitive_behavioral_and__c": "M1740 Cognitive/Behavioral Symptoms",
-      "M1745_Frequncy_of_Disruptive_Behavior__c": "M1745 Disruptive Behavior",
-      "M1800_Grooming_Actual__c": "M1800 Grooming",
-      "M1810_Ability_to_Dress_Upper_Body_Actual__c": "M1810 Upper Body Dressing",
-      "M1820_Ability_to_Dress_Lower_Body_Actual__c": "M1820 Lower Body Dressing",
-      "M1830_Bathing_Actual__c": "M1830 Bathing",
-      "M1840_Toilet_Transferring_Actual__c": "M1840 Toilet Transfer",
-      "M1845_Toilet_Hyg_Actual__c": "M1845 Toileting Hygiene",
-      "M1850_Transferring_Actual__c": "M1850 Transferring",
-      "M1860_Ambulation_Locomotion_Actual__c": "M1860 Ambulation",
-      "M1870_Feeding_Actual__c": "M1870 Feeding",
-      "M2020_Oral_Medications_Actual__c": "M2020 Oral Medications",
-      
-      "J0510_Pain_Effect_on_Sleep__c": "J0510 Pain Effect on Sleep",
-      "J0520_Pain_Interference_w_Activities__c": "J0520 Pain Interference with Therapeutic Regimen (Return ONLY '0', '1', '2', '3', '4', or '8')",
-      "J0530_Pain_Interference_with_Day_to_Da__c": "J0530 Pain Interference with Activities",
-      "K0520A_Parenteral_IV_feeding__c": "K0520A Nutritional Approaches - Parenteral/IV feeding (Return 'Checked' or 'N/A')",
-      "K0520B_Feeding_tube_NG_PEG__c": "K0520B Nutritional Approaches - Feeding tube (Return 'Checked' or 'N/A')",
-      
-      "N0415_A_Antipsychotic__c": "N0415 A Antipsychotic (boolean true or false)",
-      "N0415_E_Anticoagulant__c": "N0415 E Anticoagulant (boolean true or false)",
-      "N0415_F_Antibiotic__c": "N0415 F Antibiotic (boolean true or false)",
-      "N0415_H_Opioid__c": "N0415 H Opioid (boolean true or false)",
-      "N0415_I_Antiplatelet__c": "N0415 I Antiplatelet (boolean true or false)",
-      "N0415_J_Hypoglycemic__c": "N0415 J Hypoglycemic (boolean true or false)",
-      
-      "O0110_A_IV_Chemotherapy__c": "O0110 A IV Chemotherapy (boolean true or false)",
-      "O0110_C_Oxygen_therapy__c": "O0110 C Oxygen therapy (boolean true or false)",
-      "O0110_E_Tracheostomy__c": "O0110 E Tracheostomy (boolean true or false)",
-      "O0110_F_Invasive_Mechanical_Ventilator__c": "O0110 F Invasive Mechanical Ventilator (boolean true or false)",
-      "O0110_G_Non_invasive_Mechanical_Ventila__c": "O0110 G Non-invasive Mechanical Ventilator (boolean true or false)",
-      "O0110_J_Dialysis__c": "O0110 J Dialysis (boolean true or false)",
-      
-      "GG0130_B_Oral_Hygiene__c": "GG0130 B (Oral Hygiene) SOC/ROC Performance code",
-      "GG0130_C_Toileting_Hygiene__c": "GG0130 C (Toileting Hygiene) SOC/ROC Performance code",
-      "GG0130_E_Shower_bathe_self__c": "GG0130 E (Shower/Bathe Self) SOC/ROC Performance code",
-      "GG0130_F_Upper_body_dressing__c": "GG0130 F (Upper Body Dressing) SOC/ROC Performance code",
-      "GG0130_G_Lower_body_dressing__c": "GG0130 G (Lower Body Dressing) SOC/ROC Performance code",
-      "GG0130_H_Putting_on_taking_off_footwear__c": "GG0130 H (Footwear) SOC/ROC Performance code",
-      
-      "GG0170_A_Roll_left_and_right__c": "GG0170 A (Roll left/right) SOC/ROC Performance code",
-      "GG0170_B_Sit_to_lying__c": "GG0170 B (Sit to lying) SOC/ROC Performance code",
-      "GG0170_C_Lying_to_sitting_on_side_of_bed__c": "GG0170 C (Lying to sitting) SOC/ROC Performance code",
-      "GG0170_D_Sit_to_stand__c": "GG0170 D (Sit to stand) SOC/ROC Performance code",
-      "GG0170_E_Chair_bed_to_chair_transfer__c": "GG0170 E (Chair/bed transfer) SOC/ROC Performance code",
-      "GG0170_F_Toilet_transfer__c": "GG0170 F (Toilet transfer) SOC/ROC Performance code",
-      "GG0170_I_Walk_10_feet__c": "GG0170 I (Walk 10 feet) SOC/ROC Performance code",
-      "GG0170_J_Walk_50_feet_with_two_turns__c": "GG0170 J (Walk 50 feet w/ turns) SOC/ROC Performance code",
-      "GG0170_K_Walk_150_feet__c": "GG0170 K (Walk 150 feet) SOC/ROC Performance code",
-      "GG0170_L_Walking_10_feet_on_uneven_surf__c": "GG0170 L (Walk 10 feet uneven) SOC/ROC Performance code",
-      "GG0170_M_1_step_curb__c": "GG0170 M (1 step/curb) SOC/ROC Performance code",
-      "GG0170_N_4_steps__c": "GG0170 N (4 steps) SOC/ROC Performance code",
-      "GG0170_O_12_steps__c": "GG0170 O (12 steps) SOC/ROC Performance code",
-      "GG0170_R_Wheel_50_feet_with_two_turns__c": "GG0170 R (Wheel 50 feet) SOC/ROC Performance code",
-      "GG0170_S_Wheel_150_feet__c": "GG0170 S (Wheel 150 feet) SOC/ROC Performance code",
-      "Suggested_ICD_10_Codes__c": "Comma-separated list of suggested ICD-10 codes based on the identified clinical conditions"
-    }
+    --- PLAN OF CARE / ORDERS ---
+    - Activities Permitted: Look for the header "Activities Permitted". Return a comma-separated list of EVERY checkbox that is visually marked.
+    - DME: Look for the header "DME". Return a comma-separated list of EVERY checkbox that is visually marked.
+
+    --- OASIS ITEMS (SENSORY, COGNITIVE, ADLs, ETC) ---
+    - M0090 (Date Assessment Completed) -> Return YYYY-MM-DD
+    - M1000 (Inpatient Discharge History - list all checked numbers 1-7)
+    - M1028 (Active Diagnoses - Comorbidities)
+    - M1033 (Risk for Hospitalization – list all checked numbers)
+    - M1100 (Patient Living Situation)
+    - B0200 (Hearing)
+    - B1000 (Vision)
+    - C0100 (Brief Interview for Mental Status)
+    - C1310 (Signs and symptoms of Delirium)
+    - M1400 (Dyspnea)
+    - M1700 (Cognitive Functioning)
+    - M1710 (When Confused)
+    - M1720 (When Anxious)
+    - M1740 (Cognitive/Behavioral Symptoms – list all checked numbers)
+    - M1745 (Disruptive Behavior)
+    
+    --- SKIN CONDITIONS ---
+    - M1306 (Unhealed Pressure Ulcer/Injury)
+    - M1322 (Current Number of Stage 1 Pressure Injuries)
+    - M1324 (Stage of Most Problematic Unhealed Pressure Ulcer)
+    - M1330 (Does this patient have a Stasis Ulcer?)
+    - M1340 (Does this patient have a Surgical Wound?)
+
+    --- M1311 PRESSURE ULCERS (NUMBER FIELDS) ---
+    - Look for a table or list containing M1311 items (A1 through F1). Extract the exact number written in the box or "Number of Ulcers" column for each.
+    - M1311 A1 (Number of Stage 2 Pressure Ulcers) -> Return as an integer (e.g., 0, 1, 2). If blank, return 0.
+    - M1311 B1 (Number of Stage 3 Pressure Ulcers) -> Return as an integer. If blank, return 0.
+    - M1311 C1 (Number of Stage 4 Pressure Ulcers) -> Return as an integer. If blank, return 0.
+    - M1311 D1 (Unstageable - Non-removable dressing/device) -> Return as an integer. If blank, return 0.
+    - M1311 E1 (Unstageable - Slough/eschar) -> Return as an integer. If blank, return 0.
+    - M1311 F1 (Unstageable - Deep tissue injury) -> Return as an integer. If blank, return 0.
+
+    --- BLADDER AND BOWEL ---
+    - M1600 (Has this patient been treated for a Urinary Tract Infection?)
+    - M1610 (Urinary Incontinence or Urinary Catheter Presence)
+    - M1620 (Bowel Incontinence Frequency)
+    - M1630 (Ostomy for Bowel Elimination)
+
+    --- ADLs ---
+    - M1800 (Grooming)
+    - M1810 (Upper Body Dressing)
+    - M1820 (Lower Body Dressing)
+    - M1830 (Bathing)
+    - M1840 (Toilet Transfer)
+    - M1845 (Toileting Hygiene)
+    - M1850 (Transferring)
+    - M1860 (Ambulation)
+    - M1870 (Feeding) 
+    - M2020 (Oral Medications)
+    
+    --- PAIN & NUTRITION ---
+    - J0510 (Pain Effect on Sleep)
+    - J0520 (Pain Interference with Activities)
+    - J0530 (Pain Interference with Activities)
+    - K0520A (Nutritional Approaches - Parenteral/IV feeding) -> Return "Checked" or "N/A"
+    - K0520B (Nutritional Approaches - Feeding tube) -> Return "Checked" or "N/A"
+
+    --- HIGH-RISK DRUGS & SPECIAL TREATMENTS (BOOLEAN CHECKBOXES) ---
+    - N0415 A (Antipsychotic) -> Return boolean true if marked, false if not.
+    - N0415 E (Anticoagulant) -> Return boolean true if marked, false if not.
+    - N0415 F (Antibiotic) -> Return boolean true if marked, false if not.
+    - N0415 H (Opioid) -> Return boolean true if marked, false if not.
+    - N0415 I (Antiplatelet) -> Return boolean true if marked, false if not.
+    - N0415 J (Hypoglycemic) -> Return boolean true if marked, false if not.
+    
+    - O0110 A (IV Chemotherapy) -> Return boolean true if marked, false if not.
+    - O0110 C (Oxygen therapy) -> Return boolean true if marked, false if not.
+    - O0110 E (Tracheostomy) -> Return boolean true if marked, false if not.
+    - O0110 F (Invasive Mechanical Ventilator) -> Return boolean true if marked, false if not.
+    - O0110 G (Non-invasive Mechanical Ventilator) -> Return boolean true if marked, false if not.
+    - O0110 J (Dialysis) -> Return boolean true if marked, false if not.
+
+    --- GG ITEMS (SELF-CARE & MOBILITY) ---
+    - Extract the "SOC/ROC Performance" code (e.g., 06, 05, 04, 03, 02, 01, 07, 09, 10, 88) for the following items:
+    - GG0130 B (Oral Hygiene)
+    - GG0130 C (Toileting Hygiene)
+    - GG0130 E (Shower/Bathe Self)
+    - GG0130 F (Upper Body Dressing)
+    - GG0130 G (Lower Body Dressing)
+    - GG0130 H (Footwear)
+    - GG0170 A (Roll left/right)
+    - GG0170 B (Sit to lying)
+    - GG0170 C (Lying to sitting)
+    - GG0170 D (Sit to stand)
+    - GG0170 E (Chair/bed transfer)
+    - GG0170 F (Toilet transfer)
+    - GG0170 I (Walk 10 feet)
+    - GG0170 J (Walk 50 feet w/ turns)
+    - GG0170 K (Walk 150 feet)
+    - GG0170 L (Walk 10 feet uneven)
+    - GG0170 M (1 step/curb)
+    - GG0170 N (4 steps)
+    - GG0170 O (12 steps)
+    - GG0170 R (Wheel 50 feet)
+    - GG0170 S (Wheel 150 feet)
+
+    --- D0150 PATIENT MOOD INTERVIEW ---
+    - This section has two columns. Extract the numeric code for checks in Row A and Row B.
+    - Row A (Little interest): Col 1 (Symptom), Col 2 (Frequency)
+    - Row B (Feeling down): Col 1 (Symptom), Col 2 (Frequency)
+
+    --- SALESFORCE OUTPUT REQUIREMENT (MANDATORY) ---
+    - You must identify values using the OASIS codes above, but the FINAL OUTPUT must use the specific JSON keys below.
+    - Use this mapping EXACTLY:
+    
+    - SOC_Date -> M0030 (YYYY-MM-DD)
+    - ROC_Date -> M0032 (YYYY-MM-DD)
+    - Zip_Code -> M0060 (First 5 digits only)
+    - Episode_Timing -> M0110 (1 or 2)
+    - M0069 -> M0069 (1 or 2)
+    - M0080 -> M0080 (1, 2, 3, or 4)
+    - Inpatient_Discharge_Date -> M1005 (YYYY-MM-DD)
+    - M0090_Date_Assessment_Completed -> M0090 (YYYY-MM-DD)
+    - M1000_Discharge_History -> M1000 (Comma separated list of codes)
+    - Activities Permitted -> Activities_Permitted__c
+    - DME -> DME_Supplies__c
+    
+    - B0200 -> B0200_Hearing__c
+    - B1000 -> M1200_Vision__c
+    - C0100 -> C0100_Brief_Interview_for_Mental_Status__c
+    - C1310 -> C1310_Signs_and_symptoms_of_Delirium__c
+    - M1028 -> M1028_Active_Diagnoses__c
+    - M1100 -> M1100_Living_Arrangement__c
+    
+    - M1306 -> M1306_Unhealed_PU_Injury_at_Stage_2__c
+    - M1311 A1 -> M1311_A1_Unhealed_PU_Injuries_Stage_2__c
+    - M1311 B1 -> M1311_B1_Unhealed_PU_Injuries_Stage_3__c
+    - M1311 C1 -> M1311_C1_Unhealed_PU_Injuries_Stage_4__c
+    - M1311 D1 -> M1311_D1_PU_Nonremovable_dressing__c
+    - M1311 E1 -> M1311_E1_PU_Slough_and_or_Eschar__c
+    - M1311 F1 -> M1311_F1_PU_DTI__c
+    - M1322 -> M1322_Current_Number_of_Stage_1_PU__c
+    - M1324 -> M1324_Most_Problematic_Stageable_Unheal__c
+    - M1330 -> M1340_Stasis_Ulcer__c
+    - M1340 -> M1340_Surgical_wound__c
+    
+    - M1600 -> M1600_UTI__c
+    - M1610 -> M1610_Urinary_Incontinence__c
+    - M1620 -> M1620_Bowel_Incontinence__c
+    - M1630 -> M1630_Ostomy__c
+
+    - D0150 Row A Col 1 -> Little_interest_symptom_presence__c
+    - D0150 Row A Col 2 -> Little_interest_symptom_frequency__c
+    - D0150 Row B Col 1 -> Feeling_down_symptom_presence__c
+    - D0150 Row B Col 2 -> Feeling_down_symptom_frequency__c
+    - M1033 -> Functional_Points_M1033__c
+    - M1400 -> M1400_SOB_Actual__c
+    - M1700 -> M1700_Cognitive_Functioning__c
+    - M1710 -> M1710_When_Confused__c
+    - M1720 -> M1720_When_Anxious__c
+    - M1740 -> M1740_Cognitive_behavioral_and__c
+    - M1745 -> M1745_Frequncy_of_Disruptive_Behavior__c
+    - M1800 -> M1800_Grooming_Actual__c
+    - M1810 -> M1810_Ability_to_Dress_Upper_Body_Actual__c
+    - M1820 -> M1820_Ability_to_Dress_Lower_Body_Actual__c
+    - M1830 -> M1830_Bathing_Actual__c
+    - M1840 -> M1840_Toilet_Transferring_Actual__c
+    - M1845 -> M1845_Toilet_Hyg_Actual__c
+    - M1850 -> M1850_Transferring_Actual__c
+    - M1860 -> M1860_Ambulation_Locomotion_Actual__c
+    - M1870 -> M1870_Feeding_Actual__c
+    - M2020 -> M2020_Oral_Medications_Actual__c
+    
+    - J0510 -> J0510_Pain_Effect_on_Sleep__c
+    - J0520 -> J0520_Pain_Interference_w_Activities__c
+    - J0530 -> J0530_Pain_Interference_with_Day_to_Da__c
+    - K0520A -> K0520A_Parenteral_IV_feeding__c
+    - K0520B -> K0520B_Feeding_tube_NG_PEG__c
+
+    - N0415 A -> N0415_A_Antipsychotic__c
+    - N0415 E -> N0415_E_Anticoagulant__c
+    - N0415 F -> N0415_F_Antibiotic__c
+    - N0415 H -> N0415_H_Opioid__c
+    - N0415 I -> N0415_I_Antiplatelet__c
+    - N0415 J -> N0415_J_Hypoglycemic__c
+
+    - O0110 A -> O0110_A_IV_Chemotherapy__c
+    - O0110 C -> O0110_C_Oxygen_therapy__c
+    - O0110 E -> O0110_E_Tracheostomy__c
+    - O0110 F -> O0110_F_Invasive_Mechanical_Ventilator__c
+    - O0110 G -> O0110_G_Non_invasive_Mechanical_Ventila__c
+    - O0110 J -> O0110_J_Dialysis__c
+
+    - GG0130 B -> GG0130_B_Oral_Hygiene__c
+    - GG0130 C -> GG0130_C_Toileting_Hygiene__c
+    - GG0130 E -> GG0130_E_Shower_bathe_self__c
+    - GG0130 F -> GG0130_F_Upper_body_dressing__c
+    - GG0130 G -> GG0130_G_Lower_body_dressing__c
+    - GG0130 H -> GG0130_H_Putting_on_taking_off_footwear__c
+    - GG0170 A -> GG0170_A_Roll_left_and_right__c
+    - GG0170 B -> GG0170_B_Sit_to_lying__c
+    - GG0170 C -> GG0170_C_Lying_to_sitting_on_side_of_bed__c
+    - GG0170 D -> GG0170_D_Sit_to_stand__c
+    - GG0170 E -> GG0170_E_Chair_bed_to_chair_transfer__c
+    - GG0170 F -> GG0170_F_Toilet_transfer__c
+    - GG0170 I -> GG0170_I_Walk_10_feet__c
+    - GG0170 J -> GG0170_J_Walk_50_feet_with_two_turns__c
+    - GG0170 K -> GG0170_K_Walk_150_feet__c
+    - GG0170 L -> GG0170_L_Walking_10_feet_on_uneven_surf__c
+    - GG0170 M -> GG0170_M_1_step_curb__c
+    - GG0170 N -> GG0170_N_4_steps__c
+    - GG0170 O -> GG0170_O_12_steps__c
+    - GG0170 R -> GG0170_R_Wheel_50_feet_with_two_turns__c
+    - GG0170 S -> GG0170_S_Wheel_150_feet__c
 
     FINAL OUTPUT FORMAT (STRICT)
     - Return ONLY valid JSON.
-    - Return a SINGLE flat JSON object matching the keys exactly as shown above.
+    - Return a SINGLE flat JSON object.
+    - Keys MUST be the specific keys listed above.
     - Values MUST be strings, EXCEPT for Checkbox items (like N0415 and O0110) which MUST be native boolean true or false (no quotes).
     - Use comma-separated values for multi-select string items.
     - Do NOT include markdown, backticks, explanations, or extra text.
@@ -918,19 +848,19 @@ async function runOasisExtraction(uploadedFilesArray) {
     If M1330 is 3, return EXACTLY: "3 - Yes, patient has unobservable stasis ulcers only"
     Otherwise return: "N/A"
 
-    M1600_UTI_Treated_in_the_past_14_days__c (Mapped from M1600) — VALID VALUES
+    M1600_UTI__c (Mapped from M1600) — VALID VALUES
     If M1600 is 0, return EXACTLY: "0 - No"
     If M1600 is 1, return EXACTLY: "1 - Yes"
     If M1600 is NA or not applicable, return EXACTLY: "NA - Patient on prophylactic treatment"
     Otherwise return: "N/A"
 
-    M1610_Incontinence_Catheter_Presence__c (Mapped from M1610) — VALID VALUES
+    M1610_Urinary_Incontinence__c (Mapped from M1610) — VALID VALUES
     If M1610 is 0, return EXACTLY: "0 - No incontinence or catheter"
     If M1610 is 1, return EXACTLY: "1 - Patient is incontinent"
     If M1610 is 2, return EXACTLY: "2 - Patient requires a urinary catheter"
     Otherwise return: "N/A"
 
-    M1620_Bowel_Incontinence_Frequency__c (Mapped from M1620) — VALID VALUES
+    M1620_Bowel_Incontinence__c (Mapped from M1620) — VALID VALUES
     If M1620 is 0, return EXACTLY: "0 - Very rarely or never has bowel incontinence"
     If M1620 is 1, return EXACTLY: "1 - less than once weekly"
     If M1620 is 2, return EXACTLY: "2 - One to three times weekly"
@@ -939,7 +869,7 @@ async function runOasisExtraction(uploadedFilesArray) {
     If M1620 is 5, return EXACTLY: "5 - More often than once daily"
     Otherwise return: "N/A"
 
-    M1630_Ostomy_for_Bowel_Elimination__c (Mapped from M1630) — VALID VALUES
+    M1630_Ostomy__c (Mapped from M1630) — VALID VALUES
     If M1630 is 0, return EXACTLY: "0 - Patient does not have an ostomy for bowel elimination."
     If M1630 is 1, return EXACTLY: "1 - Patient's ostomy was not related to an inpatient stay and did not necessitate a change in the medical treatment regimen"
     If M1630 is 2, return EXACTLY: "2 - The ostomy was related to an inpatient stay or necessitated a change in medical or treatment regimen."
@@ -961,6 +891,25 @@ async function runOasisExtraction(uploadedFilesArray) {
     If J0530 is 4, return EXACTLY: "4. Almost constantly"
     If J0530 is 8, return EXACTLY: "8. Unable to answer"
     Otherwise return: "N/A"
+
+    C0100_Brief_Interview_for_Mental_Status__c (Mapped from C0100) — VALID VALUES
+    If C0100 is 0, return EXACTLY: "0 - NO"
+    If C0100 is 1, return EXACTLY: "1 - YES"
+    Otherwise return: "N/A"
+
+    C1310_Signs_and_symptoms_of_Delirium__c (Mapped from C1310) — VALID VALUES
+    If C1310 is 0, return EXACTLY: "0 - NO"
+    If C1310 is 1, return EXACTLY: "1 - YES"
+    Otherwise return: "N/A"
+
+    J0520_Pain_Interference_w_Activities__c (Mapped from J0520) — VALID VALUES
+    If J0520 is 0, return EXACTLY: "0 - Does not apply"
+    If J0520 is 1, return EXACTLY: "1- Rarely or not at all"
+    If J0520 is 2, return EXACTLY: "2 - Occasionally"
+    If J0520 is 3, return EXACTLY: "3 - Frequently"
+    If J0520 is 4, return EXACTLY: "4 - Almost constantly"
+    If J0520 is 8, return EXACTLY: "8 - Unable to answer"
+    Otherwise return: "N/A"
     
     OUTPUT ENFORCEMENT
     - Output ONLY valid picklist labels.
@@ -980,11 +929,10 @@ async function runPtOtExtraction(uploadedFilesArray) {
 
     Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
 
-    CRITICAL INSTRUCTIONS FOR 100% ACCURACY: 
-    1. Do NOT guess information. If a value is missing, exclude it or return null.
+    CRITICAL INSTRUCTION: 
+    1. Do NOT guess information. 
     2. If the document is NOT a specific PT or OT evaluation (e.g., if it is ONLY an OASIS form), you MUST return an empty JSON object: {}.
-    3. Do NOT use data from OASIS M-items or GG-items to populate PT/OT specific fields. Look ONLY at the PT/OT functional assessment sections.
-    4. You must strictly follow the Value Mapping Logic below. Do not deviate.
+    3. Do NOT use data from OASIS M-items or GG-items to populate PT/OT specific fields unless they are explicitly found in a separate PT/OT Evaluation section.
 
     1. Value Mapping Logic (Strict)
 
@@ -1111,14 +1059,13 @@ async function runPtOtExtraction(uploadedFilesArray) {
 }
 
 /* =========================================================
-   GEMINI CALLER (UPDATED FOR FILE URI & SCHEMA ENFORCEMENT)
+   GEMINI CALLER (UPDATED FOR FILE URI)
    ========================================================= */
-async function callGeminiProVision(promptText, uploadedFilesArray, description, schema = null) {
+async function callGeminiProVision(promptText, uploadedFilesArray,description) {
     const parts = [{ text: promptText }];
     
     // Updated: Use fileData with fileUri instead of inlineData
     uploadedFilesArray.forEach(f => {
-        parts.push({ text: `File Name: ${f.name}` });
         parts.push({ 
             fileData: { 
                 mimeType: f.mimeType, 
@@ -1131,15 +1078,11 @@ async function callGeminiProVision(promptText, uploadedFilesArray, description, 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            systemInstruction: {
-                parts: [{ text: "You are an elite, highly precise Medical Data Extraction AI. Your sole purpose is to process clinical documents with 100% accuracy. You never guess, you never hallucinate. You strictly follow instructions, mapping rules, and schema requirements. You extract the exact values as seen in the documents." }]
-            },
             contents: [{ parts: parts }],
             generationConfig: {
                 temperature: 0.0,       // 0.0 = Deterministic (No creativity/hallucinations)
                 topK: 1,                // Pick only the most likely token
-                responseMimeType: "application/json", // Force strict JSON output
-                ...(schema ? { responseSchema: schema } : {})
+                responseMimeType: "application/json" // Force strict JSON output
             },
             safetySettings: [
                 { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
@@ -1173,44 +1116,6 @@ async function callGeminiProVision(promptText, uploadedFilesArray, description, 
     }
     
     return data.candidates[0].content.parts[0].text;
-}
-
-/* =========================================================
-   AI FLOW 3: CLASSIFICATION
-   ========================================================= */
-async function classifyDocuments(uploadedFiles) {
-    const prompt = `
-    Review the attached documents. For each document, carefully determine its classification:
-    - "oasis": If the document is an OASIS evaluation (look for "OASIS-E", "Start of Care", "Resumption of Care", "M0030", "GG0130").
-    - "ptot": If the document is a Physical Therapy or Occupational Therapy evaluation (look for "Physical Therapy", "Occupational Therapy", "PT Eval", "OT Eval").
-    - "other": If it is neither.
-
-    Return an array of objects, where each object contains the exact "fileName" and its "docType".
-    `;
-    
-    const schema = {
-        type: "array",
-        items: {
-            type: "object",
-            properties: {
-                fileName: { type: "string" },
-                docType: { type: "string", enum: ["oasis", "ptot", "other"] }
-            },
-            required: ["fileName", "docType"]
-        }
-    };
-
-    const responseText = await callGeminiProVision(prompt, uploadedFiles, "Document Classification", schema);
-    
-    try {
-        const arr = JSON.parse(responseText);
-        const map = {};
-        arr.forEach(item => { map[item.fileName] = item.docType; });
-        return map;
-    } catch (e) {
-        console.error("Classification parsing failed", e);
-        return {};
-    }
 }
 
 /* =========================================================
@@ -1296,11 +1201,7 @@ async function uploadFiles() {
 function readFileAsBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve({ 
-            mimeType: file.type, 
-            base64: reader.result.split(",")[1], 
-            name: file.name
-        });
+        reader.onload = () => resolve({ mimeType: file.type, base64: reader.result.split(",")[1], name: file.name });
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
@@ -1308,4 +1209,3 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
-
