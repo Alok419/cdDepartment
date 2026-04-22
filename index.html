@@ -712,8 +712,8 @@ async function runOasisExtraction(uploadedFilesArray) {
     - B1000 -> M1200_Vision__c
     - C0100 -> C0100_Brief_Interview_for_Mental_Status__c
     - C1310 -> C1310_Signs_and_symptoms_of_Delirium__c
-    - M1028 -> M1028_Active_Diagnoses__c
-    - M1100 -> M1100_Living_Arrangement__c
+    - M1028 -> M1028_Active_Diagnosis__c
+    - M1100 -> M1100_Patient_living_status__c
     
     - M1306 -> M1306_Unhealed_PU_Injury_at_Stage_2__c
     - M1311 A1 -> M1311_A1_Unhealed_PU_Injuries_Stage_2__c
@@ -727,10 +727,10 @@ async function runOasisExtraction(uploadedFilesArray) {
     - M1330 -> M1340_Stasis_Ulcer__c
     - M1340 -> M1340_Surgical_wound__c
     
-    - M1600 -> M1600_UTI__c
-    - M1610 -> M1610_Urinary_Incontinence__c
-    - M1620 -> M1620_Bowel_Incontinence__c
-    - M1630 -> M1630_Ostomy__c
+    - M1600 -> M1600_UTI_Treated_in_the_past_14_days__c
+    - M1610 -> M1610_Incontinence_Catheter_Presence__c
+    - M1620 -> M1620_Bowel_Incontinence_Frequency__c
+    - M1630 -> M1630_Ostomy_for_Bowel_Elimination__c
 
     - D0150 Row A Col 1 -> Little_interest_symptom_presence__c
     - D0150 Row A Col 2 -> Little_interest_symptom_frequency__c
@@ -848,19 +848,19 @@ async function runOasisExtraction(uploadedFilesArray) {
     If M1330 is 3, return EXACTLY: "3 - Yes, patient has unobservable stasis ulcers only"
     Otherwise return: "N/A"
 
-    M1600_UTI__c (Mapped from M1600) — VALID VALUES
+    M1600_UTI_Treated_in_the_past_14_days__c (Mapped from M1600) — VALID VALUES
     If M1600 is 0, return EXACTLY: "0 - No"
     If M1600 is 1, return EXACTLY: "1 - Yes"
     If M1600 is NA or not applicable, return EXACTLY: "NA - Patient on prophylactic treatment"
     Otherwise return: "N/A"
 
-    M1610_Urinary_Incontinence__c (Mapped from M1610) — VALID VALUES
+    M1610_Incontinence_Catheter_Presence__c (Mapped from M1610) — VALID VALUES
     If M1610 is 0, return EXACTLY: "0 - No incontinence or catheter"
     If M1610 is 1, return EXACTLY: "1 - Patient is incontinent"
     If M1610 is 2, return EXACTLY: "2 - Patient requires a urinary catheter"
     Otherwise return: "N/A"
 
-    M1620_Bowel_Incontinence__c (Mapped from M1620) — VALID VALUES
+    M1620_Bowel_Incontinence_Frequency__c (Mapped from M1620) — VALID VALUES
     If M1620 is 0, return EXACTLY: "0 - Very rarely or never has bowel incontinence"
     If M1620 is 1, return EXACTLY: "1 - less than once weekly"
     If M1620 is 2, return EXACTLY: "2 - One to three times weekly"
@@ -869,7 +869,7 @@ async function runOasisExtraction(uploadedFilesArray) {
     If M1620 is 5, return EXACTLY: "5 - More often than once daily"
     Otherwise return: "N/A"
 
-    M1630_Ostomy__c (Mapped from M1630) — VALID VALUES
+    M1630_Ostomy_for_Bowel_Elimination__c (Mapped from M1630) — VALID VALUES
     If M1630 is 0, return EXACTLY: "0 - Patient does not have an ostomy for bowel elimination."
     If M1630 is 1, return EXACTLY: "1 - Patient's ostomy was not related to an inpatient stay and did not necessitate a change in the medical treatment regimen"
     If M1630 is 2, return EXACTLY: "2 - The ostomy was related to an inpatient stay or necessitated a change in medical or treatment regimen."
