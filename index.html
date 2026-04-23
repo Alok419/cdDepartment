@@ -235,7 +235,7 @@
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI Oasissessss Analyzer</h2>
+            <h2 class="main-title">AI Oasis Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -290,7 +290,7 @@ let CACHED_AI_TIME = 0;
 let selectedFiles = [];
 
 
-const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent";
+const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
 
 /* =========================================================
    SALESFORCE CONNECTION
@@ -884,12 +884,21 @@ async function runOasisExtraction(uploadedFilesArray) {
     If J0510 is 8, return EXACTLY: "8 - Unable to answer"
     Otherwise return: "N/A"
 
-     J0530_Pain_Effect_on_Sleep__c (Mapped from J0530) — VALID VALUES
+    J0530_Pain_Effect_on_Sleep__c (Mapped from J0530) — VALID VALUES
     If J0530 is 1, return EXACTLY: "1. Rarely or not at all"
     If J0530 is 2, return EXACTLY: "2. Occasionally"
     If J0530 is 3, return EXACTLY: "3. Frequently"
     If J0530 is 4, return EXACTLY: "4. Almost constantly"
     If J0530 is 8, return EXACTLY: "8. Unable to answer"
+    Otherwise return: "N/A"
+
+    M1100_Patient_living_status__c (Mapped from M1100) — VALID VALUES
+    Determine the "Availability of Assistance" by checking the selected column header or the specific numbered box.
+    If the marked column/box indicates "Around the clock" OR is marked as 01, 06, or 11, return EXACTLY: "1 - Around the clock"
+    If the marked column/box indicates "Regular daytime" OR is marked as 02, 07, or 12, return EXACTLY: "2 - Regular daytime"
+    If the marked column/box indicates "Regular nighttime" OR is marked as 03, 08, or 13, return EXACTLY: "3 - Regular night-time"
+    If the marked column/box indicates "Occasional/short-term" OR is marked as 04, 09, or 14, return EXACTLY: "4 - Occasional/Short-term assistance"
+    If the marked column/box indicates "No assistance available" OR is marked as 05, 10, or 15, return EXACTLY: "5 - No Assistance available"
     Otherwise return: "N/A"
 
     C0100_Brief_Interview_for_Mental_Status__c (Mapped from C0100) — VALID VALUES
