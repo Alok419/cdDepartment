@@ -290,7 +290,8 @@ let CACHED_AI_TIME = 0;
 let selectedFiles = [];
 
 
-const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+//const GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent";
+let GEMINI_PRO_ENDPOINT = "";
 
 /* =========================================================
    SALESFORCE CONNECTION
@@ -303,6 +304,8 @@ window.addEventListener("message", (event) => {
         SF_SESSION_ID = event.data.sessionId;
         SF_BASE_URL = event.data.baseUrl;
 
+        const model = event.data.geminiModel;
+        GEMINI_PRO_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent";
         document.getElementById("loadingMessage").style.display = "none";
         document.getElementById("mainCard").style.display = "block";
     }
