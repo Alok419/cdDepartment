@@ -307,7 +307,7 @@ window.addEventListener("message", (event) => {
         SF_BASE_URL = event.data.baseUrl;
 
         const model = event.data.geminiModel;
-        GEMINI_PRO_ENDPOINT = \`https://generativelanguage.googleapis.com/v1beta/models/\${model}:generateContent\`;
+        GEMINI_PRO_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
         document.getElementById("loadingMessage").style.display = "none";
         document.getElementById("mainCard").style.display = "block";
@@ -354,10 +354,10 @@ function renderFileList() {
     selectedFiles.forEach((file, index) => {
         const item = document.createElement("div");
         item.className = "file-item";
-        item.innerHTML = \`
+        item.innerHTML = `
             <span class="file-name">📄 \${file.name}</span>
             <button class="remove-btn" onclick="removeFile(\${index})">×</button>
-        \`;
+        `;
         container.appendChild(item);
     });
 }
@@ -452,7 +452,7 @@ async function startAnalysis() {
 
         const safeParse = (str) => {
             try {
-                let clean = str.replace(/```json/g, "").replace(/```/g, "").trim();
+                let clean = str.replace(/\`\`\`json/g, "").replace(/```/g, "").trim();
                 const firstOpen = clean.indexOf('{');
                 const lastClose = clean.lastIndexOf('}');
                 if (firstOpen !== -1 && lastClose !== -1) {
@@ -521,7 +521,7 @@ async function uploadToGemini(fileObj) {
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: fileObj.mimeType });
 
-    const uploadUrlResp = await fetch(\`https://generativelanguage.googleapis.com/upload/v1beta/files?key=\${GEMINI_API_KEY}\`, {
+    const uploadUrlResp = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=\${GEMINI_API_KEY}`, {
         method: 'POST',
         headers: {
             'X-Goog-Upload-Protocol': 'resumable',
@@ -562,7 +562,7 @@ async function uploadToGemini(fileObj) {
    AI FLOW 1: OASIS EXTRACTION
    ========================================================= */
 async function runOasisExtraction(uploadedFilesArray) {
-    const prompt = \`
+    const prompt = `
      You are a specialized Clinical Document Extractor. Your job is to extract data from an OASIS-E1 Home Health Assessment PDF.
 
     VISUAL INSTRUCTIONS
@@ -933,7 +933,7 @@ async function runOasisExtraction(uploadedFilesArray) {
     - Output ONLY valid picklist labels.
     - Multiple values must be comma-separated.
     - If nothing applies, return "N/A" (or false for booleans).
-    \`;
+    `;
 
    return await callGeminiProVision(prompt, uploadedFilesArray, "OASIS Extraction");
 }
@@ -942,7 +942,7 @@ async function runOasisExtraction(uploadedFilesArray) {
    AI FLOW 2: PT/OT EXTRACTION
    ========================================================= */
 async function runPtOtExtraction(uploadedFilesArray) {
-    const prompt = \`
+    const prompt = `
     Role - You are an expert Medical Data Encoder.
 
     Task -  Extract functional assessment data from the attached Physical Therapy (PT) or Occupational Therapy (OT) documents and map the values to a specific JSON structure using strict standardization rules.
@@ -1071,7 +1071,7 @@ async function runPtOtExtraction(uploadedFilesArray) {
     Wheelchair_Mobility__c → Look for Wheelchair use / propulsion
 
      Other__c → Look for Unlevel or Uneven Surfaces (Level / Unlevel / Uneven / Uneven surface / Walk on uneven surfaces and Populate this field using the same Value Mapping Logic defined above.)
-    \`;
+    `;
 
    return await callGeminiProVision(prompt, uploadedFilesArray, "PT/OT Functional Eval");
 }
@@ -1180,7 +1180,7 @@ async function callGeminiProVision(promptText, uploadedFilesArray,description) {
         });
     });
 
-    const response = await fetch(\`\${GEMINI_PRO_ENDPOINT}?key=\${GEMINI_API_KEY}\`, {
+    const response = await fetch(`\${GEMINI_PRO_ENDPOINT}?key=\${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1249,7 +1249,7 @@ async function finalizeSave() {
 
         // 2. Save Data (Separate calls for OASIS vs POC)
         if (Object.keys(G_OASIS_JSON).length > 0) {
-            await sendToApex(\`\${SF_BASE_URL}/services/apexrest/oasis/ai-result\`, {
+            await sendToApex(`\${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
                 chartId: CHART_ID,
                 rawJson: JSON.stringify(G_OASIS_JSON),
                 aiTimeSeconds: CACHED_AI_TIME,
@@ -1258,7 +1258,7 @@ async function finalizeSave() {
         }
 
         if (Object.keys(G_POC_JSON).length > 0) {
-            await sendToApex(\`\${SF_BASE_URL}/services/apexrest/POC/ai-result\`, {
+            await sendToApex(`\${SF_BASE_URL}/services/apexrest/POC/ai-result`, {
                 chartId: CHART_ID,
                 rawJson: JSON.stringify(G_POC_JSON),
                 f2fSummary: "",
@@ -1273,7 +1273,7 @@ async function finalizeSave() {
         showStatus("✅ All Data & Files Saved!", false);
         saveBtn.innerText = "Saved";
         setTimeout(() => {
-             window.location.href = \`\${SF_BASE_URL}/lightning/r/Chart__c/\${CHART_ID}/view\`;
+             window.location.href = `\${SF_BASE_URL}/lightning/r/Chart__c/\${CHART_ID}/view`;
         }, 1500);
 
     } catch (e) {
@@ -1292,12 +1292,12 @@ async function sendToApex(endpoint, body) {
     });
     if (!response.ok) {
         const errText = await response.text();
-        throw new Error(\`Apex Error (\${response.status}): \` + errText);
+        throw new Error(`Apex Error (\${response.status}): ` + errText);
     }
 }
 
 async function uploadFiles() {
-    const endpoint = \`\${SF_BASE_URL}/services/data/v60.0/sobjects/ContentVersion\`;
+    const endpoint = `\${SF_BASE_URL}/services/data/v60.0/sobjects/ContentVersion`;
     for (let file of selectedFiles) {
         const fileData = await readFileAsBase64(file);
         await fetch(endpoint, {
@@ -1328,3 +1328,6 @@ function readFileAsBase64(file) {
 </script>
 </body>
 </html>
+
+
+
