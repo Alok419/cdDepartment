@@ -241,7 +241,7 @@ header_remove("X-Frame-Options");
 
     <div class="main-wrapper">
         <div class="card" id="mainCard" style="display:none;">
-            <h2 class="main-title">AI Oasis Analyzer--------------------</h2>
+            <h2 class="main-title">AI Oasis Analyzer</h2>
             <p class="subtitle">Unified Processing: OASIS & PT/OT Evaluations</p>
 
             <div id="inputSection">
@@ -911,12 +911,12 @@ async function runOasisExtraction(uploadedFilesArray) {
     If M1630 is 2, return EXACTLY: "2 - The ostomy was related to an inpatient stay or necessitated a change in medical or treatment regimen."
     Otherwise return: "N/A"
 
-    J0510_Pain_Effect_on_Sleep__c (Mapped from J0510) — VALID VALUES
+   J0510_Pain_Effect_on_Sleep__c (Mapped from J0510) — VALID VALUES
     If J0510 is 0, return EXACTLY: "0 - Does not apply"
     If J0510 is 1, return EXACTLY: "1- Rarely or not at all"
     If J0510 is 2, return EXACTLY: "2 - Occasionally"
     If J0510 is 3, return EXACTLY: "3 - Frequently"
-    If J0510 is 4, return EXACTLY: "4 - Almost constantly"
+    If J0510 is 4, retur n EXACTLY: "4 - Almost constantly"
     If J0510 is 8, return EXACTLY: "8 - Unable to answer"
     Otherwise return: "N/A"
 
