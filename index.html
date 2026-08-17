@@ -401,7 +401,6 @@ function updateProgress(val, text) {
    MAIN ANALYSIS LOGIC (PARALLEL PROCESSING & MERGE)
    ========================================================= */
 let G_OASIS_JSON = {};
-let G_POC_JSON = {};
 
 async function startAnalysis() {
     const combinedOutput = document.getElementById("combinedOutput");
@@ -413,7 +412,6 @@ async function startAnalysis() {
     showStatus("");
     document.getElementById("resultSection").classList.add("hidden");
     G_OASIS_JSON = {};
-    G_POC_JSON = {};
 
     if (!GEMINI_API_KEY) { showStatus("❌ Missing API Key", true); return; }
     if (selectedFiles.length === 0) { showStatus("❌ Select files first", true); return; }
@@ -434,13 +432,12 @@ async function startAnalysis() {
         const uploadedFiles = await Promise.all(fileDataArray.map(uploadToGemini));
 
         // 3. Parallel AI Calls
-        updateProgress(40, "AI Analysis Running (OASIS + PT/OT + POC)...");
+        updateProgress(40, "AI Analysis Running (OASIS + PT/OT)...");
 
         // Run extraction in parallel
         const results = await Promise.allSettled([
             runOasisExtraction(uploadedFiles),
-            runPtOtExtraction(uploadedFiles),
-            runPocExtraction(uploadedFiles)
+            runPtOtExtraction(uploadedFiles)
         ]);
 
         CACHED_AI_TIME = Math.floor((Date.now() - startTime) / 1000);
@@ -481,17 +478,10 @@ async function startAnalysis() {
 
         G_OASIS_JSON = mergedJson;
 
-        if (results[2].status === "fulfilled") {
-            G_POC_JSON = safeParse(results[2].value);
-        } else {
-            console.error("POC Failed:", results[2].reason);
-        }
-
-        console.log("🟪 [FINAL OASIS JSON DATA]:", G_OASIS_JSON);
-        console.log("🟪 [FINAL POC JSON DATA]:", G_POC_JSON);
+        console.log("🟪 [FINAL UNIFIED OASIS JSON DATA]:", G_OASIS_JSON);
 
         // 5. Display Combined JSON
-        combinedOutput.value = JSON.stringify({ OASIS_PTOT: G_OASIS_JSON, POC: G_POC_JSON }, null, 4);
+        combinedOutput.value = JSON.stringify(G_OASIS_JSON, null, 4);
 
         document.getElementById("resultSection").classList.remove("hidden");
         combinedOutput.style.display = "block";
@@ -805,12 +795,49 @@ async function runOasisExtraction(uploadedFilesArray) {
     - GG0170 R -> GG0170_R_Wheel_50_feet_with_two_turns__c
     - GG0170 S -> GG0170_S_Wheel_150_feet__c
 
+    ADDITIONAL POC/ROC EXTRACTED FIELDS:
+    - (M0063) Medicare Number -> Patient_HI_Claim_No__c
+    - (M0030) Start of Care Date -> Start_of_Care_Date__c
+    - Certification Period Start Date -> Cert_Period_Start_Date__c
+    - Certification Period End Date -> Cert_Period_End_Date__c
+    - MRN / (M0020) ID Number -> Medical_Record_Number__c
+    - (M0010) CMS Certification Number -> Agency_Provider_Number__c
+    - Patient Name, Address, and Phone Number (Extract Address) -> Patient_Address__c
+    - Patient Name, Address, and Phone Number (Extract Phone) -> Patient_Mobile__c
+    - Prognosis (MUST be one of: Guarded, Fair, Poor, Good, Excellent, Other) -> Prognosis__c
+    - Mental/Cognitive Status -> Mental_Cognitive_Status__c
+    - Functional Limitations -> Functional_Limitations__c
+    - Safety Measures -> Safety_Measures__c
+    - Attending Physician or Allowed Practitioner Name -> Physician_Name__c
+    - Allergies -> Allergies__c
+    - Nutritional Requirements -> Nutritional_Requirements__c
+    - Activities Permitted/Restricted -> Activities_Permitted_Restricted__c
+   // - DME and Supplies -> DME_and_Supplies__c
+    - Advanced Directives -> Advanced_Directives__c
+    - Psychosocial Status -> Psychosocial_Status__c
+    - Emergency Preparedness -> Emergency_Preparedness__c
+    - Caregiver Status -> Caregiver_Status__c
+    - Medications -> Medications__c
+    - (M1021) Primary Diagnosis Code -> Principal_Diagnosis__c
+    - Nurse/Therapist Signature And Date Of Verbal SOC -> Nurse_Verbal_SOC_Signed_By__c
+    - Physician Signature Date -> Physician_Signature_Date__c
+    - (M1023) Other Diagnosis -> Other_Diagnoses__c
+    - Orders For Discipline and Treatment -> Orders_For_Discipline_Treatment__c
+    - Goals -> Goals__c
+    - Rehabilitation Potential and Discharge Plan (Extract Rehabilitation Potential) -> Rehabilitation_Potential__c
+    - Rehabilitation Potential and Discharge Plan (Extract Discharge Plan) -> Discharge_Plan__c
+    - Medical Necessity -> Medical_Necessity__c
+    - F2F Addendum (Admission Narrative) -> F2F_Addendum_Narrative__c
+    - (A0810) Sex -> Patient_Gender__c
+    - Physician Name -> Physician__c
+
     FINAL OUTPUT FORMAT (STRICT)
     - Return ONLY valid JSON.
     - Return a SINGLE flat JSON object.
     - Keys MUST be the specific keys listed above.
     - Values MUST be strings, EXCEPT for Checkbox items (like N0415 and O0110) which MUST be native boolean true or false (no quotes).
-    - Use comma-separated values for multi-select string items.
+    - Use semicolon-separated (;) values for multi-select string items (e.g., "Walker;Wheelchair;Grab Bars"). DO NOT use commas for multi-select data.
+    - For single picklist fields, return exactly the option text selected on the form without extra narrative.
     - Do NOT include markdown, backticks, explanations, or extra text.
     - Do NOT include OASIS codes in the output keys.
     - Do NOT add or remove keys.
@@ -1077,94 +1104,6 @@ async function runPtOtExtraction(uploadedFilesArray) {
 }
 
 /* =========================================================
-   AI FLOW 3: POC EXTRACTION
-   ========================================================= */
-async function runPocExtraction(uploadedFilesArray) {
-    const prompt = `Role: You are an expert Medical Data Extractor.
-
-Objective: Read the provided "Home Health Certification and Plan of Care" (POC) document. Extract key values and return them strictly in JSON format. Use the following exact JSON schema:
-
-{
-  "orderNumber": "",
-  "faxDateTime": "",
-  "faxLine": "",
-  "agencyDetails": {
-    "agencyName": "",
-    "agencyAddress": "",
-    "agencyPhone": "",
-    "agencyFax": "",
-    "providerNumber": ""
-  },
-  "patientDemographics": {
-    "patientName": "",
-    "patientDOB": "",
-    "patientGender": "",
-    "patientAddress": "",
-    "patientMobile": "",
-    "patientHIClaimNo": "",
-    "medicalRecordNo": ""
-  },
-  "certificationAdminDetails": {
-    "startOfCareDate": "",
-    "certificationStartDate": "",
-    "certificationEndDate": "",
-    "caregiverStatus": "",
-    "emergencyTriage": "",
-    "emergencyPreparedness": ""
-  },
-  "clinicalStatusSafety": {
-    "prognosis": "",
-    "mentalCognitiveStatus": "",
-    "functionalLimitations": "",
-    "safetyMeasures": "",
-    "advancedDirectives": "",
-    "psychosocialStatus": "",
-    "allergies": "",
-    "nutritionalRequirements": "",
-    "activitiesPermittedRestricted": "",
-    "dmeAndSupplies": "",
-    "dmeProvider": ""
-  },
-  "diagnosesMedications": {
-    "icd10PrincipalDiagnosis": "",
-    "icd10OtherDiagnoses": "",
-    "medicationsList": ""
-  },
-  "disciplineFrequenciesInterventions": {
-    "snFrequency": "",
-    "stFrequency": "",
-    "ptFrequency": "",
-    "otFrequency": "",
-    "ordersForDisciplineTreatment": "",
-    "patientHealthcareGoals": ""
-  },
-  "narrativesDischargePlanning": {
-    "rehabilitationPotential": "",
-    "dischargePlan": "",
-    "homeboundNarrative": "",
-    "medicalNecessity": "",
-    "f2fAddendum": ""
-  },
-  "attendingPhysicianDetails": {
-    "physicianName": "",
-    "physicianNPI": "",
-    "physicianAddress": "",
-    "physicianPhone": "",
-    "physicianFax": ""
-  },
-  "signaturesAttestation": {
-    "verbalSOCNurseSignature": "",
-    "verbalSOCSignDate": "",
-    "dateHHAReceivedSigned": "",
-    "physicianSignatureDate": ""
-  }
-}
-
-Output: Return ONLY a JSON object representing the extracted data. Do not include markdown formatting or the \`\`\`json block. Just the raw JSON.`;
-    return await callGeminiProVision(prompt, uploadedFilesArray, "POC Extraction");
-}
-
-/* =========================================================
    GEMINI CALLER (UPDATED FOR FILE URI)
    ========================================================= */
 async function callGeminiProVision(promptText, uploadedFilesArray,description) {
@@ -1249,18 +1188,18 @@ async function finalizeSave() {
 
         // 2. Save Data (Separate calls for OASIS vs POC)
         if (Object.keys(G_OASIS_JSON).length > 0) {
+            console.log("🚀 Sending to OASIS Endpoint:", JSON.stringify(G_OASIS_JSON));
             await sendToApex(`${SF_BASE_URL}/services/apexrest/oasis/ai-result`, {
                 chartId: CHART_ID,
                 rawJson: JSON.stringify(G_OASIS_JSON),
                 aiTimeSeconds: CACHED_AI_TIME,
                 aiLogs: currentSessionLogs
             });
-        }
-
-        if (Object.keys(G_POC_JSON).length > 0) {
+            
+            console.log("🚀 Sending unified data to POC Endpoint:", JSON.stringify(G_OASIS_JSON));
             await sendToApex(`${SF_BASE_URL}/services/apexrest/POC/ai-result`, {
                 chartId: CHART_ID,
-                rawJson: JSON.stringify(G_POC_JSON),
+                rawJson: JSON.stringify(G_OASIS_JSON),
                 f2fSummary: "",
                 ptOtJson: "{}",
                 aiTimeSeconds: CACHED_AI_TIME,
