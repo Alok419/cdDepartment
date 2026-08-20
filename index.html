@@ -995,22 +995,23 @@ async function runOasisExtraction(uploadedFilesArray) {
       If DNI is selected, return EXACTLY: "DNI"
       If Full Code is selected, return EXACTLY: "Full Code"
       If Other is selected, return EXACTLY: "Other"
-    - Psychosocial Status -> Psychosocial_Status__c
+    - Psychosocial Status / Psychosocial Assessment -> Psychosocial_Status__c
     - Emergency Preparedness -> Emergency_Preparedness__c
     - Caregiver Status -> Caregiver_Status__c
-    - Medications -> Medications__c
-    - (M1021) Primary Diagnosis Code -> Principal_Diagnosis__c
-    - Nurse/Therapist Signature And Date Of Verbal SOC -> Nurse_Verbal_SOC_Signed_By__c
-    - Physician Signature Date -> Physician_Signature_Date__c
-    - (M1023) Other Diagnosis -> Other_Diagnoses__c
-    - Orders For Discipline and Treatment -> Orders_For_Discipline_Treatment__c
-    - Goals -> Goals__c
-    - Rehabilitation Potential and Discharge Plan (Extract Rehabilitation Potential) -> Rehabilitation_Potential__c
-    - Rehabilitation Potential and Discharge Plan (Extract Discharge Plan) -> Discharge_Plan__c
-    - Medical Necessity -> Medical_Necessity__c
-    - F2F Addendum (Admission Narrative) -> F2F_Addendum_Narrative__c
+    - Medications / Medications List -> Medications__c
+    - (M1021) Primary Diagnosis Code / ICD-10 CM Principal Diagnosis / ICD-10 CM / Principal Diagnosis -> Principal_Diagnosis__c
+    - Nurse/Therapist Signature And Date Of Verbal SOC / Nurse's Signature, and Date and Time of Verbal SOC Where Applicable -> Nurse_Verbal_SOC_Signed_By__c
+    - Physician Signature Date / Signature Date / Signature Date and Time -> Physician_Signature_Date__c
+    - (M1023) Other Diagnosis / ICD-10 CM Other Diagnosis / ICD-10-CM / Other Pertinent Diagnosis -> Other_Diagnoses__c
+    - Orders For Discipline and Treatment / Orders for Discipline & Treatment / Orders for Discipline and Treatments -> Orders_For_Discipline_Treatment__c
+    - Goals / Goals/Rehabilitation Potential/Discharge Plans/Referral Plan/Other Notes -> Goals__c
+    - Rehabilitation Potential / Rehabilitation Potential and Discharge Plan / Goals/Rehabilitation Potential/Discharge Plans/Referral Plan/Other Notes (Extract Rehabilitation Potential) -> Rehabilitation_Potential__c
+    - Discharge Plan / Discharge Plans / Rehabilitation Potential and Discharge Plan / Goals/Rehabilitation Potential/Discharge Plans/Referral Plan/Other Notes (Extract Discharge Plan) -> Discharge_Plan__c
+    - Medical Necessity / Skilled Intervention Needed -> Medical_Necessity__c
+    - F2F Addendum / F2F Addendum (Admission Narrative) / Certification statement / Face-to-Face encounter -> F2F_Addendum_Narrative__c
+    - Homebound Narrative -> Homebound_Narrative__c
     - (A0810) Sex -> Patient_Gender__c
-    - Physician Name -> Physician__c
+    - Physician Name / Attending Physician or Allowed Practitioner Name / Provider's Name, Address, and Telephone Number / Physician's Name and Address -> Physician__c
 
     FINAL OUTPUT FORMAT (STRICT)
     - Return ONLY valid JSON.
