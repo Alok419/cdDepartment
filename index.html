@@ -705,8 +705,8 @@ async function runOasisExtraction(uploadedFilesArray) {
     - Inpatient_Discharge_Date -> M1005 (YYYY-MM-DD)
     - M0090_Date_Assessment_Completed -> M0090 (YYYY-MM-DD)
     - M1000_Discharge_History -> M1000 (Comma separated list of codes)
-    - Activities Permitted -> Activities_Permitted__c
-    - DME -> DME_Supplies__c
+    - Activities Permitted / Activities Permitted/Restricted / Activities Permitted (goes to POC Box #18B) -> Activities_Permitted__c
+    - DME / DME and Supplies / DME SUPPLIES -> DME_Supplies__c
     
     - B0200 -> B0200_Hearing__c
     - B1000 -> M1200_Vision__c
@@ -805,8 +805,9 @@ async function runOasisExtraction(uploadedFilesArray) {
     - (M0010) CMS Certification Number -> Agency_Provider_Number__c
     - Patient Name, Address, and Phone Number (Extract Address) -> Patient_Address__c
     - Patient Name, Address, and Phone Number (Extract Phone) -> Patient_Mobile__c
-    - Prognosis (MUST be one of: Guarded, Fair, Poor, Good, Excellent, Other) -> Prognosis__c
-    - Mental/Cognitive Status -> Mental_Cognitive_Status__c — VALID VALUES:
+    - (M0018) National Provider Identifier (NPI) -> Physician_NPI__c
+    - Prognosis (MUST be one of: Guarded, Fair, Poor, Good, Excellent, Other) / Prognosis (goes to POC Box #20) -> Prognosis__c
+    - Mental/Cognitive Status / Mental Status / Mental Status (Form 485 - Locator #19) -> Mental_Cognitive_Status__c — VALID VALUES:
       If Oriented is selected, return EXACTLY: "Oriented"
       If Forgetful is selected, return EXACTLY: "Forgetful"
       If Disoriented is selected, return EXACTLY: "Disoriented"
@@ -824,7 +825,7 @@ async function runOasisExtraction(uploadedFilesArray) {
       If Oriented to self only is selected, return EXACTLY: "Oriented to self only"
       If Oriented to self and place is selected, return EXACTLY: "Oriented to self and place"
       If Forgetfulness is selected, return EXACTLY: "Forgetfulness"
-    - Functional Limitations -> Functional_Limitations__c — VALID VALUES:
+    - Functional Limitations / Functional Limitation (goes to POC Box #18A) -> Functional_Limitations__c — VALID VALUES:
       If Amputation is selected, return EXACTLY: "Amputation"
       If Paralysis is selected, return EXACTLY: "Paralysis"
       If Legally Blind is selected, return EXACTLY: "Legally Blind"
@@ -846,7 +847,7 @@ async function runOasisExtraction(uploadedFilesArray) {
       If Vision deficit is selected, return EXACTLY: "Vision deficit"
       If Speech/Communication deficit is selected, return EXACTLY: "Speech/Communication deficit"
       If Hearing deficit is selected, return EXACTLY: "Hearing deficit"
-    - Safety Measures -> Safety_Measures__c — VALID VALUES:
+    - Safety Measures / Safety / Plan of Care: Safety Measures -> Safety_Measures__c — VALID VALUES:
       If Presence of animals is selected, return EXACTLY: "Presence of animals"
       If Side rails up is selected, return EXACTLY: "Side rails up"
       If Diabetic: Do not cut nails is selected, return EXACTLY: "Diabetic: Do not cut nails"
@@ -854,7 +855,7 @@ async function runOasisExtraction(uploadedFilesArray) {
       If Slow position changes is selected, return EXACTLY: "Slow position changes"
       If DME and electrical safety is selected, return EXACTLY: "DME and electrical safety"
       If Prone to fractures precaution is selected, return EXACTLY: "Prone to fractures precaution"
-      If Infection control (Standard precautions, Contact precautions, Droplet precautions, Airborne precautions, or Proper handling of biohazard waste) is selected, return EXACTLY: "Infection control (Standard precautions, Contact precautions, Droplet precautions, Airborne precautions, or Proper handling of biohazard waste)"
+      If Infection control: Standard precautions is selected, return EXACTLY: "Infection control: Standard precautions"
       If Proper positioning during meals is selected, return EXACTLY: "Proper positioning during meals"
       If Emergency/disaster plan development is selected, return EXACTLY: "Emergency/disaster plan development"
       If Other is selected, return EXACTLY: "Other"
@@ -936,9 +937,12 @@ async function runOasisExtraction(uploadedFilesArray) {
       If Lock w/c with transfer is selected, return EXACTLY: "Lock w/c with transfer"
       If Infection Control Measures is selected, return EXACTLY: "Infection Control Measures"
       If Walker/cane is selected, return EXACTLY: "Walker/cane"
+      If Infection control: Contact precautions is selected, return EXACTLY: "Infection control: Contact precautions"
+      If Infection control: Droplet precautions is selected, return EXACTLY: "Infection control: Droplet precautions"
+      If Infection control: Airborne precautions is selected, return EXACTLY: "Infection control: Airborne precautions"
     - Attending Physician or Allowed Practitioner Name -> Physician_Name__c
     - Allergies -> Allergies__c
-    - Nutritional Requirements -> Nutritional_Requirements__c — VALID VALUES:
+    - Nutritional Requirements / Nutritional Req / NUTRITIONAL REQUIREMENTS (DIET) -> Nutritional_Requirements__c — VALID VALUES:
       If Low Sodium is selected, return EXACTLY: "Low Sodium"
       If Heart Healthy is selected, return EXACTLY: "Heart Healthy"
       If Low Cholesterol is selected, return EXACTLY: "Low Cholesterol"
@@ -962,7 +966,7 @@ async function runOasisExtraction(uploadedFilesArray) {
       If Nothing by mouth is selected, return EXACTLY: "Nothing by mouth"
       If TPN is selected, return EXACTLY: "TPN"
       If Supplements is selected, return EXACTLY: "Supplements"
-      If Liquid consistencies (Thin, Nectar, Honey, Pudding, or Other) is selected, return EXACTLY: "Liquid consistencies (Thin, Nectar, Honey, Pudding, or Other)"
+      If Liquid consistencies:Thin is selected, return EXACTLY: "Liquid consistencies:Thin"
       If Sodium Diet is selected, return EXACTLY: "Sodium Diet"
       If Calorie ADA Diet is selected, return EXACTLY: "Calorie ADA Diet"
       If Bland Diet is selected, return EXACTLY: "Bland Diet"
@@ -978,7 +982,11 @@ async function runOasisExtraction(uploadedFilesArray) {
       If No Added Salt is selected, return EXACTLY: "No Added Salt"
       If NPO is selected, return EXACTLY: "NPO"
       If Renal Diet is selected, return EXACTLY: "Renal Diet"
-    - Advanced Directives -> Advanced_Directives__c — VALID VALUES:
+      If Liquid consistencies: Nectar is selected, return EXACTLY: "Liquid consistencies: Nectar"
+      If Liquid consistencies: Honey is selected, return EXACTLY: "Liquid consistencies: Honey"
+      If Liquid consistencies: Pudding is selected, return EXACTLY: "Liquid consistencies: Pudding"
+      If Liquid consistencies: Other is selected, return EXACTLY: "Liquid consistencies: Other"
+    - Advanced Directives / Advance Directives -> Advanced_Directives__c — VALID VALUES:
       If Do Not Resuscitate (DNR) is selected, return EXACTLY: "Do Not Resuscitate (DNR)"
       If Do Not Resuscitate is selected, return EXACTLY: "Do Not Resuscitate"
       If DNR is selected, return EXACTLY: "DNR"
